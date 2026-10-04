@@ -363,6 +363,35 @@ public actor HerdrService {
         _ = try await client().request(method: "pane.focus", params: .object(["pane_id": .string(paneID)]))
     }
 
+    public func paneLayout(paneID: String) async throws -> PaneLayout {
+        struct Envelope: Codable { let layout: PaneLayout }
+        return try await client().request(
+            method: "pane.layout",
+            params: .object(["pane_id": .string(paneID)]),
+            as: Envelope.self
+        ).layout
+    }
+
+    /// Absolute ratio for the split at `path` (false = first child, true =
+    /// second, from the root). Clamped by herdr.
+    public func setSplitRatio(tabID: String, path: [Bool], ratio: Double) async throws {
+        _ = try await client().request(
+            method: "layout.set_split_ratio",
+            params: .object([
+                "tab_id": .string(tabID),
+                "path": .array(path.map { .bool($0) }),
+                "ratio": .number(ratio),
+            ])
+        )
+    }
+
+    public func zoomPane(paneID: String, mode: String = "toggle") async throws {
+        _ = try await client().request(
+            method: "pane.zoom",
+            params: .object(["pane_id": .string(paneID), "mode": .string(mode)])
+        )
+    }
+
     /// Moves a tab to `insertIndex` among tabs in its workspace (`0...count`).
     /// Same RPC the herdr TUI uses for tab reorder.
     public func moveTab(tabID: String, insertIndex: UInt) async throws {
