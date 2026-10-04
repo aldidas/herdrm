@@ -7,6 +7,22 @@ the Sparkle update description — a release without a section here fails CI.
 
 ## [Unreleased]
 
+### Added
+- **Ghostty themes.** Settings › Terminal has a theme picker backed by the bundled
+  Ghostty theme catalog, and *Import from Ghostty…* now also reads `theme` from
+  `~/.config/ghostty/config`. The terminal background and the light-theme color
+  adapter follow the chosen theme instead of the system appearance.
+- **Space tab bar.** The selected space shows its herdr tabs across the top
+  (status, rename, close, new tab).
+- **Herdr splits.** A tab's panes are laid out exactly as herdr has them split, with
+  draggable dividers and click-to-focus.
+
+### Changed
+- Sidebar restyled to the herdr layout: status rings, a muted git branch line (and
+  `↑N` when ahead) under each space on local devices, and compact one-line agent
+  rows. Agent stats moved to the row tooltip; Files/Search live under the new
+  *menu* strip next to *new*.
+
 ## [0.6.11] - 2026-10-03
 
 ### Added

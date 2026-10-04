@@ -77,6 +77,14 @@ auto-bumped after each release.
   `herdr terminal attach <terminal_id> --takeover` (takes the pane over from other attached
   clients). Remote devices run it through `ssh -tt` with PATH prepended
   (`sshd` exec is not a login shell; herdr lives in `/opt/homebrew/bin` on macOS hosts).
+- `pane.layout {pane_id}` returns cell rects + flat `splits` (direction right|down, ratio, rect); the tree is
+  rebuilt in `HerdrKit/PaneLayout.swift` (`SplitTree`). `layout.set_split_ratio {tab_id,path:[bool],ratio}` sets an
+  absolute ratio (`path` []=root, false=first child, true=second; `split_not_found` when the child is a leaf);
+  `pane.focus {pane_id}` / `tab.focus {tab_id}` focus by id (`pane.resize`/`pane.focus_direction` are directional
+  only). Split ids encode the path (`split_1_0` = first child of the root). The Sidebar/tab bar/split view use these:
+  `SpaceTabBar` (tabs from `session.tabs`), `AppModel.activeLayout` + frame placement in `ContentView.attachedTerminal`.
+- Git branch/ahead per space comes from `GitStatusProvider` (reads `.git/HEAD`, `git rev-list` for ahead); local
+  devices only.
 - Agent status buckets sort Blocked > Done > Working > Idle (matches Heeler).
 
 Reference repos: `~/Projects/herdr` (server source), `~/Projects/Heeler` (iOS client,
