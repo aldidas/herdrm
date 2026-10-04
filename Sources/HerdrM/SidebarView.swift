@@ -835,8 +835,9 @@ private struct SpaceRowView: View {
     var body: some View {
         let selected = model.selectedSpace == entry.ref
         let git = model.gitStatus(for: entry)
+        let ring = model.attention(in: entry).ring
         HStack(alignment: .top, spacing: 8) {
-            StatusRing(status: entry.workspace.status)
+            StatusRing(status: ring.status, unreadDone: ring.unreadDone)
                 .padding(.top, 3)
             VStack(alignment: .leading, spacing: 2) {
                 Text(entry.workspace.label)

@@ -172,6 +172,7 @@ final class AppModel: ObservableObject {
     /// Fetches `pane.layout` for the selected pane's tab and makes sure every
     /// pane in it has a kept-alive attach, so the split can show them all.
     func refreshActiveLayout() async {
+        let token = layoutGate.begin()
         guard let selected = selectedPane, let device = device(selected.deviceID) else {
             activeLayout = nil
             return
@@ -179,21 +180,28 @@ final class AppModel: ObservableObject {
         let service = service(for: device)
         do {
             let layout = try await service.paneLayout(paneID: selected.paneID)
-            guard selectedPane == selected else { return }   // user moved on mid-flight
+            // A newer request started, or the user moved on mid-flight: drop this reply.
+            guard layoutGate.isCurrent(token), selectedPane == selected else { return }
             guard layout.panes.count > 1, let tree = SplitTree.build(from: layout) else {
                 activeLayout = nil
                 return
             }
-            for paneID in tree.paneIDs { ensureAttached(PaneRef(deviceID: device.id, paneID: paneID)) }
+            // A zoomed tab shows one pane; do not take the hidden ones over.
+            if !layout.zoomed {
+                for paneID in tree.paneIDs { ensureAttached(PaneRef(deviceID: device.id, paneID: paneID)) }
+            }
             let next = ActiveLayout(
                 tabID: layout.tabID, deviceID: device.id, tree: tree,
                 zoomed: layout.zoomed, focusedPaneID: layout.focusedPaneID
             )
             if activeLayout != next { activeLayout = next }
         } catch {
+            guard layoutGate.isCurrent(token), selectedPane == selected else { return }
             activeLayout = nil
         }
     }
+
+    private var layoutGate = LatestOnlyGate()
 
     private func ensureAttached(_ ref: PaneRef) {
         guard let device = device(ref.deviceID) else { return }
@@ -781,7 +789,16 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func closeTab(_ tab: TabInfo, deviceID: UUID) {
+    func requestCloseTab(_ tab: TabInfo, deviceID: UUID) {
+        closeRequest = CloseRequest(
+            title: String(localized: "Close tab \"\(tab.customLabel ?? tab.label)\"?"),
+            message: String(localized: "Every pane in the tab and whatever is running inside will be terminated.")
+        ) { [weak self] in
+            self?.closeTab(tab, deviceID: deviceID)
+        }
+    }
+
+    private func closeTab(_ tab: TabInfo, deviceID: UUID) {
         guard let device = device(deviceID) else { return }
         let service = service(for: device)
         Task { @MainActor in
@@ -1273,7 +1290,7 @@ final class AppModel: ObservableObject {
             )
             sessions[deviceID]?.panes = snapshot.ordinaryTerminalPanes
             refreshGitStatuses(deviceID: deviceID)
-            Task { @MainActor in await refreshActiveLayout() }
+            if selectedPane?.deviceID == deviceID { Task { @MainActor in await refreshActiveLayout() } }
             let paneIDs = Set((snapshot.panes ?? []).map(\.paneID))
                 .union(snapshot.agents.map(\.paneID))
             // Drop kept-alive attaches whose pane is gone (closed). A pane only taken

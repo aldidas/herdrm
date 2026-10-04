@@ -172,3 +172,22 @@ public indirect enum SplitTree: Sendable, Equatable {
         }
     }
 }
+
+extension SplitTree {
+    public func contains(paneID: String) -> Bool { paneIDs.contains(paneID) }
+}
+
+/// Hands out increasing tokens so an async reply can tell whether a newer
+/// request started while it was in flight (stale replies must not apply).
+public struct LatestOnlyGate: Sendable {
+    private var latest = 0
+
+    public init() {}
+
+    public mutating func begin() -> Int {
+        latest += 1
+        return latest
+    }
+
+    public func isCurrent(_ token: Int) -> Bool { token == latest }
+}

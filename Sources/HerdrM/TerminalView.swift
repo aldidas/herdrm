@@ -1439,6 +1439,9 @@ struct AttachTerminalView: NSViewRepresentable {
     var onAttachmentError: (String) -> Void = { _ in }
     var onAttachmentUploadingChanged: (Bool) -> Void = { _ in }
     var onFocused: () -> Void = {}
+    /// False for panes mounted only to fill a split: they must not grab the
+    /// keyboard (and, through `onFocused`, the selection) when created.
+    var focusOnCreate: Bool = true
     /// Called on the main queue when the attach process exits: the pane was taken
     /// over by another client, the SSH connection dropped, or herdr went away. A
     /// dead session otherwise keeps its last frame and silently eats every
@@ -1483,8 +1486,9 @@ struct AttachTerminalView: NSViewRepresentable {
         // never first responder — so keystrokes went nowhere until the user clicked.
         // The hop to the next runloop pass is required: while `makeNSView` runs the
         // view has no `window` yet.
+        let focusOnCreate = self.focusOnCreate
         DispatchQueue.main.async { [weak view] in
-            guard let view, let window = view.window else { return }
+            guard focusOnCreate, let view, let window = view.window else { return }
             window.makeFirstResponder(view)
         }
         onViewReady?(view)

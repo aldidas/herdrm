@@ -658,7 +658,11 @@ struct DetailView: View {
     /// The layout to draw, or nil when only the selected pane shows (single
     /// pane, zoomed, or data that could not be reconciled).
     private var splitLayout: AppModel.ActiveLayout? {
-        guard let layout = model.activeLayout, !layout.zoomed else { return nil }
+        guard let layout = model.activeLayout, !layout.zoomed,
+              let selected = model.selectedPane,
+              layout.deviceID == selected.deviceID,
+              layout.tree.contains(paneID: selected.paneID)
+        else { return nil }
         return layout
     }
 
@@ -704,6 +708,7 @@ struct DetailView: View {
                 onAttachmentError: { model.actionError = $0 },
                 onAttachmentUploadingChanged: { uploadingAttachment = $0 },
                 onFocused: { model.focusLayoutPane(session.ref.paneID) },
+                focusOnCreate: isSelected,
                 onExit: { code in endedAttach[session.id] = code }
             )
                 // Keyed on the retry generation only — NOT colorScheme. A theme toggle

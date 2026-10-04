@@ -47,7 +47,7 @@ struct SpaceTabBar: View {
                 .lineLimit(1)
             if canClose {
                 Button {
-                    model.closeTab(tab, deviceID: space.deviceID)
+                    model.requestCloseTab(tab, deviceID: space.deviceID)
                 } label: {
                     Image(systemName: "xmark")
                         .font(.system(size: 9, weight: .semibold))
