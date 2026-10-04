@@ -644,6 +644,82 @@ final class AppModel: ObservableObject {
         selectedShellID = nil
     }
 
+    // MARK: - Tabs
+
+    func tabs(in space: SpaceRef) -> [TabInfo] {
+        session(space.deviceID).tabs.filter { $0.workspaceID == space.workspaceID }
+    }
+
+    /// The space whose tab bar is shown: the explicit selection, else the
+    /// selected pane's space.
+    var tabBarSpace: SpaceRef? {
+        if let selectedSpace { return selectedSpace }
+        guard let pane = selectedPane else { return nil }
+        let state = session(pane.deviceID)
+        let workspaceID = state.agents.first { $0.paneID == pane.paneID }?.workspaceID
+            ?? state.panes.first { $0.paneID == pane.paneID }?.workspaceID
+        return workspaceID.map { SpaceRef(deviceID: pane.deviceID, workspaceID: $0) }
+    }
+
+    func activeTabID(in space: SpaceRef) -> String? {
+        let state = session(space.deviceID)
+        let selectedTab: String? = selectedPane.flatMap { pane in
+            guard pane.deviceID == space.deviceID else { return nil }
+            return state.agents.first { $0.paneID == pane.paneID }?.tabID
+                ?? state.panes.first { $0.paneID == pane.paneID }?.tabID
+        }
+        return TabSelection.activeTabID(
+            selectedPaneTabID: selectedTab,
+            workspaceActiveTabID: state.workspaces.first { $0.workspaceID == space.workspaceID }?.activeTabID,
+            tabIDs: tabs(in: space).map(\.tabID)
+        )
+    }
+
+    func selectTab(_ tab: TabInfo, deviceID: UUID) {
+        let state = session(deviceID)
+        if let paneID = TabSelection.paneToSelect(
+            tabID: tab.tabID,
+            agentPanes: state.agents.map { ($0.paneID, $0.tabID) },
+            terminalPanes: state.panes.map { ($0.paneID, $0.tabID) }
+        ) {
+            selectAgent(PaneRef(deviceID: deviceID, paneID: paneID))
+        }
+        guard let device = device(deviceID) else { return }
+        let service = service(for: device)
+        Task { @MainActor in
+            do { try await service.focusTab(tabID: tab.tabID) } catch {
+                actionError = error.localizedDescription
+            }
+        }
+    }
+
+    func newTab(in space: SpaceRef) {
+        guard let device = device(space.deviceID) else { return }
+        let service = service(for: device)
+        Task { @MainActor in
+            do {
+                let paneID = try await service.createTab(workspaceID: space.workspaceID, cwd: nil, label: nil)
+                _ = await refreshImmediately(space.deviceID)
+                selectAgent(PaneRef(deviceID: space.deviceID, paneID: paneID))
+            } catch {
+                actionError = error.localizedDescription
+            }
+        }
+    }
+
+    func closeTab(_ tab: TabInfo, deviceID: UUID) {
+        guard let device = device(deviceID) else { return }
+        let service = service(for: device)
+        Task { @MainActor in
+            do {
+                try await service.closeTab(tabID: tab.tabID)
+                _ = await refreshImmediately(deviceID)
+            } catch {
+                actionError = error.localizedDescription
+            }
+        }
+    }
+
     var selectedShell: ShellSession? {
         selectedShellID.flatMap { id in shellSessions.first { $0.id == id } }
     }

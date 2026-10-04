@@ -472,6 +472,17 @@ struct DetailView: View {
 
     @ViewBuilder
     private var terminal: some View {
+        VStack(spacing: 0) {
+            if let space = model.tabBarSpace, model.selectedShellID == nil, !model.isFileManagerActive,
+               !model.tabs(in: space).isEmpty {
+                SpaceTabBar(model: model, space: space)
+            }
+            terminalStack
+        }
+    }
+
+    @ViewBuilder
+    private var terminalStack: some View {
         ZStack {
             attachedTerminal
             // Standalone shells stay in the hierarchy while deselected: unlike a
