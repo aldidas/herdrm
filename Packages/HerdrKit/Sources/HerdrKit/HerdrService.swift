@@ -351,6 +351,18 @@ public actor HerdrService {
         )
     }
 
+    public func focusTab(tabID: String) async throws {
+        _ = try await client().request(method: "tab.focus", params: .object(["tab_id": .string(tabID)]))
+    }
+
+    public func closeTab(tabID: String) async throws {
+        _ = try await client().request(method: "tab.close", params: .object(["tab_id": .string(tabID)]))
+    }
+
+    public func focusPane(paneID: String) async throws {
+        _ = try await client().request(method: "pane.focus", params: .object(["pane_id": .string(paneID)]))
+    }
+
     /// Moves a tab to `insertIndex` among tabs in its workspace (`0...count`).
     /// Same RPC the herdr TUI uses for tab reorder.
     public func moveTab(tabID: String, insertIndex: UInt) async throws {
