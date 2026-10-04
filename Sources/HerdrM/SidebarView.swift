@@ -52,7 +52,7 @@ struct SidebarView: View {
             // fade (StickySectionHeaders). Each section = header + rows + gap.
             ScrollView {
                 VStack(spacing: 1) {
-                    StickySection(background: { VisualEffectView(material: .sidebar) }) {
+                    StickySection(background: { Theme.sidebarBackground }) {
                         // Title + chevron used to be a decorative HStack with no
                         // tap target, so the chevron promised a disclosure that
                         // never fired. Trailing New Space stays a sibling Button
@@ -79,7 +79,7 @@ struct SidebarView: View {
                         Spacer().frame(height: 6)
                     }
 
-                    StickySection(background: { VisualEffectView(material: .sidebar) }) {
+                    StickySection(background: { Theme.sidebarBackground }) {
                         groupHeader("Agents", expanded: $agentsExpanded) {
                             Text("priority")
                                 .font(.system(size: 11))
@@ -118,7 +118,7 @@ struct SidebarView: View {
             footer
         }
         .frame(width: width)
-        .background(VisualEffectView(material: .sidebar).ignoresSafeArea())
+        .background(Theme.sidebarBackground.ignoresSafeArea())
     }
 
     private var emptyAgentsHint: String {

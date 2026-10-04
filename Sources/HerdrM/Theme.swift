@@ -48,6 +48,8 @@ enum Theme {
         return builtInTerminalBackground
     }
     private static let builtInTerminalBackground = dynamic(hex(0xFFFFFF), hex(0x101012))
+    /// Solid (not vibrancy) so the sidebar never shows the desktop through it.
+    static let sidebarBackground = dynamic(hex(0xF1F1F2), hex(0x141416))
     static let statusBarBackground = dynamic(hex(0xF1F1F2), hex(0x141416))
     static let sidebarBorder = dynamic(hex(0xD9D9D9), hex(0x292929))
     static let hairline = dynamic(hex(0x000000, alpha: 0.08), hex(0xFFFFFF, alpha: 0.06))
