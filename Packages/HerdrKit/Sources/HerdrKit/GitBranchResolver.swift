@@ -62,4 +62,66 @@ public enum GitBranchResolver {
         }
     }
 }
+
+/// Branch (cheap, from HEAD) plus ahead count (one `git rev-list` per cache
+/// miss). Results are cached per directory for `ttl` seconds so the sidebar's
+/// frequent refreshes do not spawn a process each time.
+public actor GitStatusProvider {
+    private var cache: [String: (at: Date, status: GitStatus?)] = [:]
+    private let ttl: TimeInterval
+
+    public init(ttl: TimeInterval = 5) {
+        self.ttl = ttl
+    }
+
+    public func status(forDirectory directory: String) async -> GitStatus? {
+        guard let branch = GitBranchResolver.branch(forDirectory: directory) else {
+            cache[directory] = nil
+            return nil
+        }
+        if let hit = cache[directory], Date().timeIntervalSince(hit.at) < ttl,
+           hit.status?.branch == branch {
+            return hit.status
+        }
+        let ahead = await Self.aheadCount(inDirectory: directory) ?? 0
+        let status = GitStatus(branch: branch, ahead: ahead)
+        cache[directory] = (Date(), status)
+        return status
+    }
+
+    /// `git rev-list --count @{u}..HEAD`; nil when there is no upstream or git
+    /// is unavailable. Runs off the actor so a slow repo never blocks callers
+    /// asking about other directories.
+    static func aheadCount(inDirectory directory: String) async -> Int? {
+        await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .utility).async {
+                let git = "/usr/bin/git"
+                guard FileManager.default.isExecutableFile(atPath: git) else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: git)
+                process.arguments = ["rev-list", "--count", "@{u}..HEAD"]
+                process.currentDirectoryURL = URL(fileURLWithPath: directory)
+                let output = Pipe()
+                process.standardOutput = output
+                process.standardError = FileHandle.nullDevice
+                do { try process.run() } catch {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                let data = output.fileHandleForReading.readDataToEndOfFile()
+                process.waitUntilExit()
+                guard process.terminationStatus == 0,
+                      let text = String(data: data, encoding: .utf8)
+                else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                continuation.resume(returning: Int(text.trimmingCharacters(in: .whitespacesAndNewlines)))
+            }
+        }
+    }
+}
 #endif

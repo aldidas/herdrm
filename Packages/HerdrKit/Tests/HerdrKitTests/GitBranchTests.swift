@@ -74,3 +74,64 @@ final class GitBranchTests: XCTestCase {
     }
 }
 #endif
+
+#if os(macOS)
+final class GitStatusProviderTests: XCTestCase {
+    private var root: URL!
+
+    override func setUpWithError() throws {
+        root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("git-status-\(UUID().uuidString.prefix(8))", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    }
+
+    override func tearDownWithError() throws {
+        try? FileManager.default.removeItem(at: root)
+    }
+
+    @discardableResult
+    private func git(_ args: [String], in directory: URL) throws -> String {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+        process.arguments = ["-c", "user.name=t", "-c", "user.email=t@t", "-c", "init.defaultBranch=main"] + args
+        process.currentDirectoryURL = directory
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = pipe
+        try process.run()
+        process.waitUntilExit()
+        XCTAssertEqual(process.terminationStatus, 0, "git \(args) failed")
+        return String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+    }
+
+    func testNoUpstreamMeansZeroAhead() async throws {
+        let repo = root.appendingPathComponent("solo")
+        try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
+        try git(["init"], in: repo)
+        try git(["commit", "--allow-empty", "-m", "one"], in: repo)
+        let status = await GitStatusProvider().status(forDirectory: repo.path)
+        XCTAssertEqual(status, GitStatus(branch: "main", ahead: 0))
+    }
+
+    func testCountsCommitsAheadOfUpstream() async throws {
+        let remote = root.appendingPathComponent("remote.git")
+        try FileManager.default.createDirectory(at: remote, withIntermediateDirectories: true)
+        try git(["init", "--bare"], in: remote)
+        let repo = root.appendingPathComponent("clone")
+        try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
+        try git(["init"], in: repo)
+        try git(["remote", "add", "origin", remote.path], in: repo)
+        try git(["commit", "--allow-empty", "-m", "base"], in: repo)
+        try git(["push", "-u", "origin", "main"], in: repo)
+        try git(["commit", "--allow-empty", "-m", "a"], in: repo)
+        try git(["commit", "--allow-empty", "-m", "b"], in: repo)
+        let status = await GitStatusProvider().status(forDirectory: repo.path)
+        XCTAssertEqual(status, GitStatus(branch: "main", ahead: 2))
+    }
+
+    func testNonRepoIsNil() async {
+        let status = await GitStatusProvider().status(forDirectory: root.path)
+        XCTAssertNil(status)
+    }
+}
+#endif
