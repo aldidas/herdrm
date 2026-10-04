@@ -508,13 +508,17 @@ final class AppModel: ObservableObject {
     /// Agents across the scope, filtered by selected space, in herdr tab order
     /// (device → workspace → snapshot array) so sidebar drag matches the TUI.
     var visibleAgents: [AgentEntry] {
-        var entries = devicesInScope.flatMap { device in
-            session(device.id).agents.map { agentEntry(device: device, agent: $0) }
+        guard let space = selectedSpace else { return agentsInScope }
+        return agentsInScope.filter {
+            $0.device.id == space.deviceID && $0.agent.workspaceID == space.workspaceID
         }
-        if let space = selectedSpace {
-            entries = entries.filter {
-                $0.device.id == space.deviceID && $0.agent.workspaceID == space.workspaceID
-            }
+    }
+
+    /// Every agent on the devices in scope, whatever space is selected — what
+    /// the sidebar's Agents section lists.
+    var agentsInScope: [AgentEntry] {
+        let entries = devicesInScope.flatMap { device in
+            session(device.id).agents.map { agentEntry(device: device, agent: $0) }
         }
         let deviceRank = Dictionary(uniqueKeysWithValues: devicesInScope.enumerated().map { ($1.id, $0) })
         return entries.sorted { lhs, rhs in
@@ -732,15 +736,17 @@ final class AppModel: ObservableObject {
         session(space.deviceID).tabs.filter { $0.workspaceID == space.workspaceID }
     }
 
-    /// The space whose tab bar is shown: the explicit selection, else the
-    /// selected pane's space.
+    /// The space whose tab bar is shown: the selected pane's space (the sidebar
+    /// lists agents from every space, so the pane can be outside the selected
+    /// space), else the explicit space selection.
     var tabBarSpace: SpaceRef? {
-        if let selectedSpace { return selectedSpace }
-        guard let pane = selectedPane else { return nil }
-        let state = session(pane.deviceID)
-        let workspaceID = state.agents.first { $0.paneID == pane.paneID }?.workspaceID
-            ?? state.panes.first { $0.paneID == pane.paneID }?.workspaceID
-        return workspaceID.map { SpaceRef(deviceID: pane.deviceID, workspaceID: $0) }
+        if let pane = selectedPane {
+            let state = session(pane.deviceID)
+            let workspaceID = state.agents.first { $0.paneID == pane.paneID }?.workspaceID
+                ?? state.panes.first { $0.paneID == pane.paneID }?.workspaceID
+            if let workspaceID { return SpaceRef(deviceID: pane.deviceID, workspaceID: workspaceID) }
+        }
+        return selectedSpace
     }
 
     func activeTabID(in space: SpaceRef) -> String? {

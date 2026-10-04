@@ -28,11 +28,8 @@ struct SidebarView: View {
     @State private var spaceDrop: (id: String, after: Bool)?
     @State private var draggingAgentID: String?
     @State private var agentDrop: (id: String, after: Bool)?
-    @State private var draggingTerminalID: String?
-    @State private var terminalDrop: (id: String, after: Bool)?
     @State private var spacesExpanded = true
     @State private var agentsExpanded = true
-    @State private var terminalsExpanded = true
 
     var body: some View {
         VStack(spacing: 0) {
@@ -94,53 +91,20 @@ struct SidebarView: View {
                         .accessibilityIdentifier("sidebar.section.agents")
                     } content: {
                         if agentsExpanded {
-                            if model.visibleAgents.isEmpty {
+                            if model.agentsInScope.isEmpty {
                                 Text(emptyAgentsHint)
                                     .font(.system(size: 11.5))
                                     .foregroundStyle(Theme.textGhost)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .padding(8)
                             }
-                            ForEach(model.visibleAgents) { entry in
+                            ForEach(model.agentsInScope) { entry in
                                 AgentRowView(
                                     entry: entry,
                                     model: model,
                                     draggingAgentID: $draggingAgentID,
                                     agentDrop: $agentDrop
                                 )
-                            }
-                        }
-                        if terminalsSectionVisible {
-                            Spacer().frame(height: 10)
-                        }
-                    }
-
-                    if terminalsSectionVisible {
-                        StickySection(background: { VisualEffectView(material: .sidebar) }) {
-                            groupHeader("Terminals", expanded: $terminalsExpanded) {
-                                SidebarHeaderButton(systemName: "terminal", title: "New Terminal") {
-                                    model.showNewTerminal = true
-                                }
-                            }
-                            .accessibilityIdentifier("sidebar.section.terminals")
-                        } content: {
-                            if terminalsExpanded {
-                                ForEach(model.visibleTerminals) { entry in
-                                    TerminalRowView(
-                                        entry: entry,
-                                        model: model,
-                                        draggingTerminalID: $draggingTerminalID,
-                                        terminalDrop: $terminalDrop
-                                    )
-                                }
-                                ForEach(model.shellSessions) { session in
-                                    shellRow(session)
-                                        .contextMenu {
-                                            Button("Close Terminal", role: .destructive) {
-                                                model.closeShellSession(session.id)
-                                            }
-                                        }
-                                }
                             }
                         }
                     }
@@ -155,10 +119,6 @@ struct SidebarView: View {
         }
         .frame(width: width)
         .background(VisualEffectView(material: .sidebar).ignoresSafeArea())
-    }
-
-    private var terminalsSectionVisible: Bool {
-        !model.visibleTerminals.isEmpty || !model.shellSessions.isEmpty
     }
 
     private var emptyAgentsHint: String {
@@ -255,119 +215,6 @@ struct SidebarView: View {
         .buttonStyle(SidebarRowButtonStyle(selected: selected))
     }
 
-    private struct TerminalRowView: View {
-        let entry: AppModel.TerminalEntry
-        @ObservedObject var model: AppModel
-        @Binding var draggingTerminalID: String?
-        @Binding var terminalDrop: (id: String, after: Bool)?
-        @State private var hovered = false
-
-        var body: some View {
-            let selected = !model.isFileManagerActive
-                && model.selectedPane == entry.ref
-                && model.selectedShellID == nil
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
-                    Image(systemName: "terminal")
-                        .font(.system(size: 11))
-                        .foregroundStyle(Theme.textTertiary)
-                    Text(entry.title)
-                        .font(.system(size: 13.5))
-                        .foregroundStyle(Theme.text)
-                        .lineLimit(1)
-                    Spacer(minLength: 0)
-                }
-                HStack(spacing: 5) {
-                    Image(systemName: "folder")
-                        .font(.system(size: 9.5))
-                        .foregroundStyle(Theme.textTertiary)
-                    Text(model.spaceName(deviceID: entry.device.id, workspaceID: entry.pane.workspaceID))
-                        .font(.system(size: 11.5))
-                        .foregroundStyle(Theme.textTertiary)
-                        .lineLimit(1)
-                    Spacer(minLength: 0)
-                    if model.showsRowDeviceBadges {
-                        DeviceChip(device: entry.device)
-                    }
-                }
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 7)
-            .frame(height: 51)
-            .contentShape(Rectangle())
-            .background(
-                RoundedRectangle(cornerRadius: 7)
-                    .fill(selected || hovered ? AnyShapeStyle(Theme.itemWashSelected) : AnyShapeStyle(.clear))
-            )
-            .onHover { hovered = $0 }
-            .sidebarDragChrome(
-                isDragging: draggingTerminalID == entry.id,
-                dropAfter: terminalDrop?.after,
-                isTarget: terminalDrop?.id == entry.id
-            )
-            .overlay {
-                TerminalRowDragHost(
-                    entryID: entry.id,
-                    onClick: { model.selectAgent(entry.ref) },
-                    onRename: { model.terminalToRename = entry },
-                    onClose: { model.requestClosePane(entry.ref, name: entry.title) },
-                    onDragStart: { draggingTerminalID = $0 },
-                    onDragEnd: {
-                        draggingTerminalID = nil
-                        terminalDrop = nil
-                    },
-                    onDropHover: { after in
-                        terminalDrop = sidebarDropTarget(
-                            onto: entry.id, after: after, items: model.visibleTerminals
-                        )
-                    },
-                    onHoverExit: {
-                        if terminalDrop?.id == entry.id { terminalDrop = nil }
-                    },
-                    onDrop: { sourceID, after in
-                        draggingTerminalID = nil
-                        terminalDrop = nil
-                        guard let source = model.visibleTerminals.first(where: { $0.id == sourceID })
-                        else { return }
-                        model.moveTerminal(source, onto: entry, placeAfter: after)
-                    }
-                )
-            }
-            .accessibilityAddTraits(.isButton)
-            .accessibilityAction { model.selectAgent(entry.ref) }
-            .accessibilityLabel(entry.title)
-        }
-    }
-
-    /// App-owned standalone shell (local login shell or plain ssh), outside
-    /// any herdr space.
-    private func shellRow(_ session: ShellSession) -> some View {
-        let selected = !model.isFileManagerActive && model.selectedShellID == session.id
-        return Button {
-            model.selectShell(session.id)
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: "terminal")
-                    .font(.system(size: 11))
-                    .foregroundStyle(Theme.textTertiary)
-                Text(session.title)
-                    .font(.system(size: 13.5))
-                    .foregroundStyle(Theme.text)
-                    .lineLimit(1)
-                Spacer(minLength: 0)
-                Text(session.device.name)
-                    .font(.system(size: 11))
-                    .foregroundStyle(Theme.textGhost)
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 7)
-            .frame(height: 34)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(SidebarRowButtonStyle(selected: selected))
-    }
-
-    /// Colours for the plugin stats lines under an agent row.
     private enum AgentStatsStyle {
         static func color(for kind: AgentStatsLine.Kind) -> Color {
             switch kind {
@@ -444,7 +291,7 @@ struct SidebarView: View {
                 },
                     onDropHover: { after in
                         agentDrop = sidebarDropTarget(
-                            onto: entry.id, after: after, items: model.visibleAgents
+                            onto: entry.id, after: after, items: model.agentsInScope
                         )
                     },
                 onHoverExit: {
@@ -453,7 +300,7 @@ struct SidebarView: View {
                 onDrop: { sourceID, after in
                     draggingAgentID = nil
                     agentDrop = nil
-                    guard let source = model.visibleAgents.first(where: { $0.id == sourceID })
+                    guard let source = model.agentsInScope.first(where: { $0.id == sourceID })
                     else { return }
                     model.moveAgent(source, onto: entry, placeAfter: after)
                 }
