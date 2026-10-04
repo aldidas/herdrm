@@ -393,6 +393,11 @@ final class LineBreakTerminalView: AppTerminalView {
     /// When false, mouse button events always stay local even if the TUI
     /// requested mouse reporting (Shift bypasses it either way).
     var mouseReportingEnabled = true
+    /// Mirrors the Copy-on-select setting: a finished selection is copied and a
+    /// "Copied" notice shown, like herdr's copy_on_select.
+    var copyOnSelectEnabled = true
+    private var selectionCopyTracker = SelectionCopyTracker()
+    private var copiedToast: CopiedToast?
     var appliedDarkAppearance: Bool?
     /// The live surface, captured by the coordinator's lifecycle delegate —
     /// `AppTerminalView.surface` is internal, so selection queries come in here.
@@ -539,6 +544,32 @@ final class LineBreakTerminalView: AppTerminalView {
         }
         defer { heldPress = nil }
         perform(gestureRouter.release(), with: event)
+        // Ghostty finalizes the selection while handling the release.
+        DispatchQueue.main.async { [weak self] in self?.announceSelectionCopy() }
+    }
+
+    /// Copy-on-select feedback. Ghostty copies on release by itself; copying
+    /// here too makes the clipboard write certain, and the notice says so.
+    private func announceSelectionCopy() {
+        guard copyOnSelectEnabled else { return }
+        let selection = attachedSurface?.hasSelection() == true ? attachedSurface?.readSelection() : nil
+        guard selectionCopyTracker.shouldAnnounce(selection: selection), copyLocalSelection() else { return }
+        showCopiedToast()
+    }
+
+    private func showCopiedToast() {
+        copiedToast?.removeFromSuperview()
+        let toast = CopiedToast()
+        toast.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(toast)
+        NSLayoutConstraint.activate([
+            toast.centerXAnchor.constraint(equalTo: centerXAnchor),
+            toast.topAnchor.constraint(equalTo: topAnchor, constant: 14),
+        ])
+        copiedToast = toast
+        toast.dismiss(after: 1.4) { [weak self, weak toast] in
+            if self?.copiedToast === toast { self?.copiedToast = nil }
+        }
     }
 
     // MARK: Links under mouse capture
@@ -1604,6 +1635,7 @@ func applyTerminalAppearance(
         copyOnSelect: copyOnSelect
     )
     view.mouseReportingEnabled = mouseReporting
+    view.copyOnSelectEnabled = copyOnSelect
     // Colors are theme-only; keep the rest above this early return.
     // A chosen theme decides light vs dark by its own background, not the app's.
     let terminalDark = TerminalThemeSetting.definition(named: themeName)?.isDark ?? dark
@@ -1852,6 +1884,64 @@ struct TerminalLink: Equatable {
 }
 
 /// The small Copy button shown over a link the pointer rests on.
+/// Transient "Copied" notice shown after a mouse selection is copied. Ignores
+/// the mouse so it never gets between the pointer and the terminal.
+final class CopiedToast: NSVisualEffectView {
+    init() {
+        super.init(frame: .zero)
+        material = .popover
+        blendingMode = .withinWindow
+        state = .active
+        wantsLayer = true
+        layer?.cornerRadius = 8
+        layer?.borderWidth = 0.5
+        layer?.borderColor = NSColor.separatorColor.cgColor
+
+        let icon = NSImageView(image: NSImage(systemSymbolName: "checkmark.circle.fill", accessibilityDescription: nil) ?? NSImage())
+        icon.contentTintColor = .systemGreen
+        let label = NSTextField(labelWithString: String(localized: "Copied to clipboard"))
+        label.font = .systemFont(ofSize: NSFont.smallSystemFontSize, weight: .medium)
+        label.textColor = .labelColor
+        let stack = NSStackView(views: [icon, label])
+        stack.spacing = 6
+        stack.edgeInsets = NSEdgeInsets(top: 6, left: 10, bottom: 6, right: 12)
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: trailingAnchor),
+            stack.topAnchor.constraint(equalTo: topAnchor),
+            stack.bottomAnchor.constraint(equalTo: bottomAnchor),
+        ])
+        setAccessibilityRole(.staticText)
+        setAccessibilityLabel(String(localized: "Copied to clipboard"))
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    override func updateLayer() {
+        super.updateLayer()
+        layer?.borderColor = NSColor.separatorColor.cgColor
+    }
+
+    /// Fades out after `delay` seconds, then removes itself and calls `done`.
+    func dismiss(after delay: TimeInterval, done: @escaping () -> Void) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard let self, self.superview != nil else { return done() }
+            NSAnimationContext.runAnimationGroup({ context in
+                context.duration = 0.25
+                self.animator().alphaValue = 0
+            }, completionHandler: {
+                self.removeFromSuperview()
+                done()
+            })
+        }
+    }
+}
+
 final class LinkCopyPopup: NSVisualEffectView {
     let link: TerminalLink
     private let onCopy: (TerminalLink) -> Void
