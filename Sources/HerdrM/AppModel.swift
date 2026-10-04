@@ -151,6 +151,34 @@ final class AppModel: ObservableObject {
     /// state instead of re-attaching. Evicted when its pane closes.
     @Published var attachSessions: [AttachedEntry] = []
 
+    /// Branch/ahead per space, local devices only (remote shows none). Keyed by `SpaceEntry.id`.
+    @Published private(set) var gitStatuses: [String: GitStatus] = [:]
+    private let gitStatusProvider = GitStatusProvider()
+
+    func gitStatus(for entry: SpaceEntry) -> GitStatus? { gitStatuses[entry.id] }
+
+    func refreshGitStatuses(deviceID: UUID) {
+        guard let device = device(deviceID), device.isLocal else { return }
+        let state = session(deviceID)
+        let candidates: [(workspaceID: String, cwd: String?)] =
+            state.agents.map { ($0.workspaceID, $0.cwd) } + state.panes.map { ($0.workspaceID, $0.cwd) }
+        let spaces = state.workspaces
+        Task { @MainActor in
+            var updates: [String: GitStatus] = [:]
+            var staleKeys: [String] = []
+            for workspace in spaces {
+                let key = SpaceEntry(device: device, workspace: workspace).id
+                guard let directory = WorkspaceDirectory.resolve(
+                    workspaceID: workspace.workspaceID, candidates: candidates
+                ), let status = await gitStatusProvider.status(forDirectory: directory)
+                else { staleKeys.append(key); continue }
+                updates[key] = status
+            }
+            for key in staleKeys { gitStatuses[key] = nil }
+            for (key, status) in updates where gitStatuses[key] != status { gitStatuses[key] = status }
+        }
+    }
+
     /// Keeps the selected pane's attach alive so switching back preserves its content.
     /// Runs synchronously inside the `selectedPane` assignment, so the kept-alive entry
     /// is in `attachSessions` in the same update the selection lands in — a separate
@@ -1094,6 +1122,7 @@ final class AppModel: ObservableObject {
                 workspaces: snapshot.workspaces
             )
             sessions[deviceID]?.panes = snapshot.ordinaryTerminalPanes
+            refreshGitStatuses(deviceID: deviceID)
             let paneIDs = Set((snapshot.panes ?? []).map(\.paneID))
                 .union(snapshot.agents.map(\.paneID))
             // Drop kept-alive attaches whose pane is gone (closed). A pane only taken
