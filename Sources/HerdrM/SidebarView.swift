@@ -49,30 +49,7 @@ struct SidebarView: View {
 
             Spacer().frame(height: 8)
 
-            VStack(spacing: 1) {
-                actionRow(icon: "square.and.pencil", label: "New Agent") {
-                    model.showNewAgent = true
-                }
-                // Terminals — herdr-owned or standalone — are listed under
-                // TERMINALS below; the ⌘D split beside an agent is separate.
-                actionRow(icon: "terminal", label: "New Terminal") {
-                    model.showNewTerminal = true
-                }
-                // Also reachable from the folder.badge.plus by the Spaces
-                // header; promoted here alongside the other New … actions (#84).
-                actionRow(icon: "folder.badge.plus", label: "New Space") {
-                    model.showNewSpace = true
-                }
-                actionRow(icon: "folder", label: "Files") {
-                    model.openFileManager()
-                }
-                actionRow(icon: "magnifyingglass", label: "Search") {
-                    model.showSearch = true
-                }
-            }
-            .padding(.horizontal, 10)
-
-            Spacer().frame(height: 10)
+            Spacer().frame(height: 4)
 
             // Section headers pin at the top and hand off with a scroll-linked
             // fade (StickySectionHeaders). Each section = header + rows + gap.
@@ -101,11 +78,15 @@ struct SidebarView: View {
                                 )
                             }
                         }
-                        Spacer().frame(height: 10)
+                        sectionStrip
+                        Spacer().frame(height: 6)
                     }
 
                     StickySection(background: { VisualEffectView(material: .sidebar) }) {
                         groupHeader("Agents", expanded: $agentsExpanded) {
+                            Text("priority")
+                                .font(.system(size: 11))
+                                .foregroundStyle(Theme.textGhost)
                             SidebarHeaderButton(systemName: "square.and.pencil", title: "New Agent") {
                                 model.showNewAgent = true
                             }
@@ -190,29 +171,6 @@ struct SidebarView: View {
 
     // MARK: - Rows
 
-    private func actionRow(icon: String, label: LocalizedStringKey, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 10) {
-                Image(systemName: icon)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Theme.textSecondary)
-                    .frame(width: 20, height: 20)
-                Text(label)
-                    .font(.system(size: 13))
-                    .foregroundStyle(Theme.textSecondary)
-                Spacer()
-            }
-            .padding(.horizontal, 4)
-            .frame(height: 32)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(SidebarRowButtonStyle())
-        // CSS `outline: none` is not a SwiftUI concept. This is the native
-        // equivalent for chrome (New Agent / New Terminal / Search). List
-        // rows keep their focus ring for keyboard access.
-        .focusEffectDisabled()
-    }
-
     private func groupHeader<Trailing: View>(
         _ title: LocalizedStringKey,
         expanded: Binding<Bool>,
@@ -244,6 +202,32 @@ struct SidebarView: View {
         }
         .padding(.horizontal, 8)
         .frame(height: 28)
+    }
+
+    /// `new … menu` strip from the reference layout. Everything the old action
+    /// rows offered stays reachable (also via the app menu shortcuts).
+    private var sectionStrip: some View {
+        HStack {
+            Menu {
+                Button("New Agent") { model.showNewAgent = true }
+                Button("New Terminal") { model.showNewTerminal = true }
+                Button("New Space") { model.showNewSpace = true }
+            } label: {
+                Text("new").font(.system(size: 12)).foregroundStyle(Theme.textTertiary)
+            }
+            Spacer()
+            Menu {
+                Button("Files") { model.openFileManager() }
+                Button("Search") { model.showSearch = true }
+            } label: {
+                Text("menu").font(.system(size: 12)).foregroundStyle(Theme.textTertiary)
+            }
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .padding(.horizontal, 8)
+        .frame(height: 26)
+        .overlay(alignment: .top) { Rectangle().fill(Theme.hairline).frame(height: 1) }
     }
 
     private var allSpacesRow: some View {
@@ -407,50 +391,31 @@ struct SidebarView: View {
             && model.selectedPane == entry.ref
             && model.selectedShellID == nil
         let unread = model.isUnread(entry)
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 6) {
-                Text(entry.title)
-                    .font(.system(size: 13.5))
-                    .foregroundStyle(Theme.text)
-                    .lineLimit(1)
-                Spacer(minLength: 0)
-                AgentStatusGlyph(status: agent.status, unreadDone: unread)
-            }
-            HStack(spacing: 5) {
-                AgentKindBadge(kind: agent.agent)
-                Text("·")
+        HStack(spacing: 7) {
+            StatusRing(status: agent.status, unreadDone: unread)
+            AgentKindBadge(kind: agent.agent, color: Theme.text)
+                .layoutPriority(1)
+            Spacer(minLength: 4)
+            if agent.status == .blocked {
+                Text("needs input")
                     .font(.system(size: 11.5))
-                    .foregroundStyle(Theme.textGhost)
-                Image(systemName: "folder")
-                    .font(.system(size: 9.5))
-                    .foregroundStyle(Theme.textTertiary)
-                Text(model.spaceName(deviceID: entry.device.id, workspaceID: agent.workspaceID))
+                    .foregroundStyle(Theme.warning)
+                    .lineLimit(1)
+            } else {
+                Text("\(model.spaceName(deviceID: entry.device.id, workspaceID: agent.workspaceID)) · \(entry.title)")
                     .font(.system(size: 11.5))
                     .foregroundStyle(Theme.textTertiary)
-                    .lineLimit(1)
-                Spacer(minLength: 0)
-                if agent.status == .blocked {
-                    Text("needs input")
-                        .font(.system(size: 11.5))
-                        .foregroundStyle(Theme.warning)
-                }
-                if model.showsRowDeviceBadges {
-                    DeviceChip(device: entry.device)
-                }
-            }
-            // Plugin stats (grazr account, Claude model / context / usage),
-            // one line each, only for the tokens the pane actually carries.
-            ForEach(agent.statsLines, id: \.kind) { line in
-                Text(line.text)
-                    .font(.system(size: 11, weight: line.kind == .model ? .semibold : .regular))
-                    .foregroundStyle(AgentStatsStyle.color(for: line.kind))
                     .lineLimit(1)
                     .truncationMode(.tail)
             }
+            if model.showsRowDeviceBadges {
+                DeviceChip(device: entry.device)
+            }
         }
+        .help(statsTooltip)
         .padding(.horizontal, 8)
-        .padding(.vertical, 7)
-        .frame(minHeight: 51)
+        .padding(.vertical, 5)
+        .frame(minHeight: 28)
         .contentShape(Rectangle())
         .background(
             RoundedRectangle(cornerRadius: 7)
@@ -497,6 +462,10 @@ struct SidebarView: View {
         .accessibilityAddTraits(.isButton)
         .accessibilityAction { model.selectAgent(entry.ref) }
         .accessibilityLabel(accessibilityLabel(unread: unread))
+    }
+
+    private var statsTooltip: String {
+        ([entry.title] + entry.agent.statsLines.map(\.text)).joined(separator: "\n")
     }
 
     private func accessibilityLabel(unread: Bool) -> String {
@@ -865,30 +834,44 @@ private struct SpaceRowView: View {
 
     var body: some View {
         let selected = model.selectedSpace == entry.ref
-        HStack(spacing: 8) {
-            Image(systemName: "folder")
-                .font(.system(size: 11.5))
-                .foregroundStyle(selected ? Theme.textSecondary : Theme.textTertiary)
-            Text(entry.workspace.label)
-                .font(.system(size: 13))
-                .foregroundStyle(selected ? Theme.text : Theme.textSecondary)
-                .lineLimit(1)
-            Spacer()
-            SpaceAttentionGlyph(attention: model.attention(in: entry))
+        let git = model.gitStatus(for: entry)
+        HStack(alignment: .top, spacing: 8) {
+            StatusRing(status: entry.workspace.status)
+                .padding(.top, 3)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(entry.workspace.label)
+                    .font(.system(size: 13, weight: selected ? .semibold : .regular))
+                    .foregroundStyle(selected ? Theme.text : Theme.textSecondary)
+                    .lineLimit(1)
+                if let git {
+                    Text(git.branch)
+                        .font(.system(size: 11))
+                        .foregroundStyle(Theme.textTertiary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+            }
+            Spacer(minLength: 0)
+            if let git, git.ahead > 0 {
+                Text("↑\(git.ahead)")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Theme.textTertiary)
+            }
             if model.showsRowDeviceBadges {
                 DeviceChip(device: entry.device)
             }
-            Text("\(model.agentCount(in: entry))")
-                .font(.system(size: 11))
-                .foregroundStyle(Theme.textGhost)
         }
         .padding(.horizontal, 8)
-        .frame(height: 30)
+        .padding(.vertical, 6)
+        .frame(minHeight: 40)
         .contentShape(Rectangle())
         .background(
             RoundedRectangle(cornerRadius: 7)
                 .fill(selected || hovered ? AnyShapeStyle(Theme.itemWashSelected) : AnyShapeStyle(.clear))
         )
+        .overlay {
+            if selected { RoundedRectangle(cornerRadius: 7).strokeBorder(Theme.sidebarBorder, lineWidth: 1) }
+        }
         .onHover { hovered = $0 }
         .sidebarDragChrome(
             isDragging: draggingSpaceID == entry.id,
