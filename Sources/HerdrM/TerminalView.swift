@@ -1063,6 +1063,14 @@ final class LineBreakTerminalView: AppTerminalView {
     var attachmentService: HerdrService?
     var onAttachmentError: ((String) -> Void)?
     var onAttachmentUploadingChanged: ((Bool) -> Void)?
+    /// Fired when this terminal takes keyboard focus (a click in a split pane).
+    var onFocused: (() -> Void)?
+
+    override func becomeFirstResponder() -> Bool {
+        let result = super.becomeFirstResponder()
+        if result { onFocused?() }
+        return result
+    }
     private var pendingUploads: [PendingAttachmentPaste] = []
     private var uploadTask: Task<Void, Never>?
 
@@ -1430,6 +1438,7 @@ struct AttachTerminalView: NSViewRepresentable {
     var isVisible: Bool = true
     var onAttachmentError: (String) -> Void = { _ in }
     var onAttachmentUploadingChanged: (Bool) -> Void = { _ in }
+    var onFocused: () -> Void = {}
     /// Called on the main queue when the attach process exits: the pane was taken
     /// over by another client, the SSH connection dropped, or herdr went away. A
     /// dead session otherwise keeps its last frame and silently eats every
@@ -1455,6 +1464,7 @@ struct AttachTerminalView: NSViewRepresentable {
         }
         view.delegate = context.coordinator
         view.controller = GhosttyRuntime.controller
+        view.onFocused = onFocused
         view.configuration = TerminalSurfaceOptions(backend: .inMemory(host.session))
         configureAppearance(view)
         view.setSurfaceVisible(isVisible)
@@ -1483,6 +1493,7 @@ struct AttachTerminalView: NSViewRepresentable {
 
     func updateNSView(_ nsView: LineBreakTerminalView, context: Context) {
         configurePasteHandling(nsView)
+        nsView.onFocused = onFocused
         context.coordinator.onExit = onExit
         configureAppearance(nsView)
         nsView.setSurfaceVisible(isVisible)
