@@ -126,6 +126,7 @@ final class AppModel: ObservableObject {
                 unreadAgents.remove(AgentUnreadKey(deviceID: old.deviceID, paneID: old.paneID))
             }
             noteSelectedAttachSession()
+            if let pane = selectedPane, let space = spaceRef(of: pane) { lastPaneBySpace[space] = pane }
             if let pane = selectedPane, pane != oldValue {
                 snapPaneViewportToBottom(pane)
             }
@@ -671,7 +672,58 @@ final class AppModel: ObservableObject {
             if ref == nil { return }
             if entry.device.id == ref!.deviceID && entry.workspaceID == ref!.workspaceID { return }
         }
+        if let ref, let landing = landingPane(in: ref) {
+            let wasRemembered = lastPaneBySpace[ref] == landing
+            selectedPane = landing
+            if !wasRemembered { landOnFocusedPane(of: landing) }
+            return
+        }
         selectedPane = preferredVisibleAgent()?.ref ?? firstVisiblePaneRef
+    }
+
+    /// Where the user last was in each space, so switching back returns there
+    /// instead of the first tab's first pane.
+    private var lastPaneBySpace: [SpaceRef: PaneRef] = [:]
+
+    private func spaceRef(of pane: PaneRef) -> SpaceRef? {
+        let state = session(pane.deviceID)
+        let workspaceID = state.agents.first { $0.paneID == pane.paneID }?.workspaceID
+            ?? state.panes.first { $0.paneID == pane.paneID }?.workspaceID
+        return workspaceID.map { SpaceRef(deviceID: pane.deviceID, workspaceID: $0) }
+    }
+
+    /// The remembered pane, else a pane in herdr's active tab for the space.
+    private func landingPane(in space: SpaceRef) -> PaneRef? {
+        let state = session(space.deviceID)
+        let agents = state.agents.filter { $0.workspaceID == space.workspaceID }
+        let terminals = state.panes.filter { $0.workspaceID == space.workspaceID }
+        let paneID = SpaceLanding.paneToSelect(
+            remembered: lastPaneBySpace[space]?.paneID,
+            existingPaneIDs: Set(agents.map(\.paneID) + terminals.map(\.paneID)),
+            activeTabID: state.workspaces.first { $0.workspaceID == space.workspaceID }?.activeTabID,
+            agentPanes: agents.map { ($0.paneID, $0.tabID) },
+            terminalPanes: terminals.map { ($0.paneID, $0.tabID) }
+        )
+        return paneID.map { PaneRef(deviceID: space.deviceID, paneID: $0) }
+    }
+
+    /// herdr remembers which pane has focus inside a tab, but only `pane.layout`
+    /// says so. Move the selection there unless the user has already moved on.
+    private func landOnFocusedPane(of landing: PaneRef) {
+        guard let device = device(landing.deviceID) else { return }
+        let service = service(for: device)
+        Task { @MainActor in
+            guard let layout = try? await service.paneLayout(paneID: landing.paneID),
+                  selectedPane == landing,
+                  layout.focusedPaneID != landing.paneID,
+                  layout.panes.contains(where: { $0.paneID == layout.focusedPaneID })
+            else { return }
+            let state = session(landing.deviceID)
+            guard state.agents.contains(where: { $0.paneID == layout.focusedPaneID })
+                || state.panes.contains(where: { $0.paneID == layout.focusedPaneID })
+            else { return }
+            selectedPane = PaneRef(deviceID: landing.deviceID, paneID: layout.focusedPaneID)
+        }
     }
 
     func setDeviceFilter(_ id: UUID?) {
