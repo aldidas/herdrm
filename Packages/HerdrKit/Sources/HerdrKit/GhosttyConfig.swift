@@ -13,13 +13,34 @@ public struct GhosttyConfig: Sendable, Equatable {
     public var fontFamily: String?
     /// `font-size`, in points.
     public var fontSize: Double?
+    /// The raw `theme` value: a single name, or Ghostty's `light:X,dark:Y` pair.
+    public var theme: String?
 
-    public init(fontFamily: String? = nil, fontSize: Double? = nil) {
+    public init(fontFamily: String? = nil, fontSize: Double? = nil, theme: String? = nil) {
         self.fontFamily = fontFamily
         self.fontSize = fontSize
+        self.theme = theme
     }
 
-    public var isEmpty: Bool { fontFamily == nil && fontSize == nil }
+    public var isEmpty: Bool { fontFamily == nil && fontSize == nil && theme == nil }
+
+    /// The theme name to adopt. A `light:X,dark:Y` pair collapses to one side
+    /// (herdrm applies a single theme in both appearances).
+    public func themeName(preferDark: Bool) -> String? {
+        guard let theme else { return nil }
+        var light: String?
+        var dark: String?
+        for part in theme.split(separator: ",") {
+            let piece = part.trimmingCharacters(in: .whitespaces)
+            if piece.lowercased().hasPrefix("light:") {
+                light = String(piece.dropFirst(6)).trimmingCharacters(in: .whitespaces)
+            } else if piece.lowercased().hasPrefix("dark:") {
+                dark = String(piece.dropFirst(5)).trimmingCharacters(in: .whitespaces)
+            }
+        }
+        if light == nil && dark == nil { return theme }
+        return (preferDark ? dark ?? light : light ?? dark)
+    }
 }
 
 public enum GhosttyConfigImporter {
@@ -72,6 +93,8 @@ public enum GhosttyConfigImporter {
                 if config.fontFamily == nil { config.fontFamily = value }
             case "font-size":
                 if let size = Double(value) { config.fontSize = size }
+            case "theme":
+                config.theme = value
             default:
                 break
             }

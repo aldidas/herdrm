@@ -57,6 +57,21 @@ final class GhosttyConfigTests: XCTestCase {
         XCTAssertTrue(config.isEmpty)
     }
 
+    func testParsesSingleAndPairedTheme() {
+        let single = GhosttyConfigImporter.parse("theme = Atom One Dark\n")
+        XCTAssertEqual(single.theme, "Atom One Dark")
+        XCTAssertEqual(single.themeName(preferDark: false), "Atom One Dark")
+        XCTAssertFalse(single.isEmpty)
+
+        let pair = GhosttyConfigImporter.parse("theme = light:Atom One Light,dark:Atom One Dark\n")
+        XCTAssertEqual(pair.themeName(preferDark: true), "Atom One Dark")
+        XCTAssertEqual(pair.themeName(preferDark: false), "Atom One Light")
+
+        let darkOnly = GhosttyConfigImporter.parse("theme = dark:Dracula\n")
+        XCTAssertEqual(darkOnly.themeName(preferDark: false), "Dracula")
+        XCTAssertNil(GhosttyConfig().themeName(preferDark: true))
+    }
+
     func testConfigURLPrefersXDGThenDotConfig() throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("ghostty-cfg-\(UUID().uuidString.prefix(8))", isDirectory: true)

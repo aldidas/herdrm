@@ -456,6 +456,7 @@ struct DetailView: View {
     @AppStorage(TerminalDefaults.thinStrokesKey) private var terminalThinStrokes = true
     @AppStorage(TerminalDefaults.fontWeightKey) private var terminalFontWeight = TerminalDefaults.defaultFontWeight
     @AppStorage(TerminalDefaults.lineSpacingKey) private var terminalLineSpacing = TerminalDefaults.defaultLineSpacing
+    @AppStorage(TerminalThemeSetting.key) private var terminalThemeName = ""
     @AppStorage("terminal.mouseReporting") private var terminalMouseReporting = true
     @AppStorage("terminal.copyOnSelect") private var terminalCopyOnSelect = true
     @Environment(\.colorScheme) private var colorScheme
@@ -486,6 +487,7 @@ struct DetailView: View {
                     fontWeight: terminalFontWeight,
                     lineSpacing: terminalLineSpacing,
                     dark: colorScheme == .dark,
+                    themeName: terminalThemeName,
                     mouseReporting: terminalMouseReporting,
                     copyOnSelect: terminalCopyOnSelect,
                     isVisible: model.selectedShellID == session.id && !model.isFileManagerActive,
@@ -537,6 +539,7 @@ struct DetailView: View {
                     fontWeight: terminalFontWeight,
                     lineSpacing: terminalLineSpacing,
                     dark: colorScheme == .dark,
+                    themeName: terminalThemeName,
                     mouseReporting: terminalMouseReporting,
                     copyOnSelect: terminalCopyOnSelect,
                     isVisible: model.selectedShellID == nil && !model.isFileManagerActive,
@@ -648,6 +651,7 @@ struct DetailView: View {
                 fontWeight: terminalFontWeight,
                 lineSpacing: terminalLineSpacing,
                 dark: colorScheme == .dark,
+                    themeName: terminalThemeName,
                 mouseReporting: terminalMouseReporting,
                 copyOnSelect: terminalCopyOnSelect,
                 // A selected shell or the file manager covers the attach side.

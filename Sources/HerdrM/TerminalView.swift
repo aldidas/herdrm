@@ -1,5 +1,6 @@
 import AppKit
 import GhosttyTerminal
+import GhosttyTheme
 import HerdrKit
 import SwiftUI
 import UniformTypeIdentifiers
@@ -116,8 +117,14 @@ enum TerminalDefaults {
 enum GhosttyRuntime {
     static let controller = TerminalController(
         configSource: .none,
-        theme: makeTheme()
+        theme: makeTheme(named: TerminalThemeSetting.currentName)
     )
+
+    /// Hot-swaps the Ghostty theme ("" = built-in palettes); the controller
+    /// dedupes, so this runs from every view update.
+    static func applyTheme(named name: String) {
+        controller.setTheme(makeTheme(named: name))
+    }
 
     /// Font settings are hot-applied; surfaces pick the change up without a
     /// rebuild, so this runs from every view update — the controller dedupes.
@@ -201,7 +208,10 @@ enum GhosttyRuntime {
         }
     }
 
-    private static func makeTheme() -> TerminalTheme {
+    private static func makeTheme(named name: String) -> TerminalTheme {
+        if let definition = TerminalThemeSetting.definition(named: name) {
+            return definition.toTerminalTheme()
+        }
         let dark = TerminalConfiguration { builder in
             builder.withBackground(TerminalDefaults.darkBackgroundHex)
             builder.withForeground(TerminalDefaults.darkForegroundHex)
@@ -1408,6 +1418,7 @@ struct AttachTerminalView: NSViewRepresentable {
     var lineSpacing: Double = TerminalDefaults.defaultLineSpacing
     /// From SwiftUI's environment so theme switches re-render immediately.
     var dark: Bool = false
+    var themeName: String = ""
     /// When false, mouse drags always select text locally even if the TUI
     /// requested mouse reporting (Shift+drag bypasses it either way).
     var mouseReporting: Bool = true
@@ -1504,6 +1515,7 @@ struct AttachTerminalView: NSViewRepresentable {
             fontWeight: fontWeight,
             lineSpacing: lineSpacing,
             dark: dark,
+            themeName: themeName,
             mouseReporting: mouseReporting,
             copyOnSelect: copyOnSelect
         )
@@ -1565,9 +1577,10 @@ struct AttachTerminalView: NSViewRepresentable {
 func applyTerminalAppearance(
     _ view: LineBreakTerminalView,
     fontName: String, fontSize: Double, thinStrokes _: Bool,
-    fontWeight: Double, lineSpacing: Double, dark: Bool, mouseReporting: Bool,
-    copyOnSelect: Bool
+    fontWeight: Double, lineSpacing: Double, dark: Bool, themeName: String,
+    mouseReporting: Bool, copyOnSelect: Bool
 ) {
+    GhosttyRuntime.applyTheme(named: themeName)
     GhosttyRuntime.applyFontSettings(
         fontName: fontName,
         fontSize: fontSize,
@@ -1577,9 +1590,11 @@ func applyTerminalAppearance(
     )
     view.mouseReportingEnabled = mouseReporting
     // Colors are theme-only; keep the rest above this early return.
-    guard view.appliedDarkAppearance != dark else { return }
-    view.appliedDarkAppearance = dark
-    view.processHost?.setLightColorsEnabled(!dark)
+    // A chosen theme decides light vs dark by its own background, not the app's.
+    let terminalDark = TerminalThemeSetting.definition(named: themeName)?.isDark ?? dark
+    guard view.appliedDarkAppearance != terminalDark else { return }
+    view.appliedDarkAppearance = terminalDark
+    view.processHost?.setLightColorsEnabled(!terminalDark)
 }
 
 /// A kept-alive agent/terminal attach, registered by its `AttachedEntry.id`. Unlike a
@@ -1663,6 +1678,7 @@ struct ShellTerminalView: NSViewRepresentable {
     var fontWeight: Double = TerminalDefaults.defaultFontWeight
     var lineSpacing: Double = TerminalDefaults.defaultLineSpacing
     var dark: Bool = false
+    var themeName: String = ""
     var mouseReporting: Bool = true
     var copyOnSelect: Bool = true
     /// See `AttachTerminalView.isVisible`.
@@ -1704,6 +1720,7 @@ struct ShellTerminalView: NSViewRepresentable {
             fontWeight: fontWeight,
             lineSpacing: lineSpacing,
             dark: dark,
+            themeName: themeName,
             mouseReporting: mouseReporting,
             copyOnSelect: copyOnSelect
         )
@@ -1741,6 +1758,7 @@ struct ShellTerminalView: NSViewRepresentable {
             fontWeight: fontWeight,
             lineSpacing: lineSpacing,
             dark: dark,
+            themeName: themeName,
             mouseReporting: mouseReporting,
             copyOnSelect: copyOnSelect
         )
