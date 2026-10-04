@@ -108,10 +108,44 @@ struct RootView: View {
     }
 }
 
-/// Titlebar metrics: 28pt matches the system traffic-light centerline (14pt) exactly.
+/// Titlebar metrics. The system draws the traffic lights centered in a 28pt
+/// strip; `TitlebarLayout` stretches the window's titlebar to `height` and
+/// re-centers them, so the sidebar toggle and the title strip share one centerline.
 enum TitlebarMetrics {
-    static let height: CGFloat = 28
+    static let height: CGFloat = 40
     static let trafficLightClearance: CGFloat = 78
+}
+
+/// Resizes the window's titlebar container to `TitlebarMetrics.height` and
+/// vertically centers the close/minimize/zoom buttons in it. Idempotent: AppKit
+/// re-lays the buttons out on resize and fullscreen changes, so callers
+/// reapply on those events.
+@MainActor
+enum TitlebarLayout {
+    static func apply(to window: NSWindow) {
+        guard !window.styleMask.contains(.fullScreen),
+              let close = window.standardWindowButton(.closeButton),
+              let titlebar = close.superview,
+              let container = titlebar.superview
+        else { return }
+        let target = TitlebarMetrics.height
+        if abs(container.frame.height - target) > 0.5 {
+            var frame = container.frame
+            frame.size.height = target
+            frame.origin.y = window.frame.height - target
+            container.frame = frame
+        }
+        if abs(titlebar.frame.height - target) > 0.5 || titlebar.frame.origin.y != 0 {
+            titlebar.frame = NSRect(x: titlebar.frame.origin.x, y: 0, width: titlebar.frame.width, height: target)
+        }
+        for type in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
+            guard let button = window.standardWindowButton(type) else { continue }
+            let y = (titlebar.bounds.height - button.frame.height) / 2
+            if abs(button.frame.origin.y - y) > 0.5 {
+                button.setFrameOrigin(NSPoint(x: button.frame.origin.x, y: y))
+            }
+        }
+    }
 }
 
 private struct WindowTitlebarInteraction: NSViewRepresentable {
@@ -137,6 +171,23 @@ private final class WindowTitlebarInteractionView: NSView {
         NotificationCenter.default.removeObserver(self)
         guard let window else { return }
         Self.rememberNonFilledFrame(of: window)
+        // The titlebar container exists but is not laid out yet while the view
+        // is being moved into the window; apply on the next runloop pass.
+        DispatchQueue.main.async { [weak window] in
+            guard let window else { return }
+            TitlebarLayout.apply(to: window)
+        }
+        for name in [
+            NSWindow.didResizeNotification, NSWindow.didExitFullScreenNotification,
+            NSWindow.didBecomeKeyNotification, NSWindow.didChangeScreenNotification,
+        ] {
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(titlebarNeedsLayout(_:)),
+                name: name,
+                object: window
+            )
+        }
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(windowFrameDidChange(_:)),
@@ -154,6 +205,15 @@ private final class WindowTitlebarInteractionView: NSView {
     deinit {
         rememberFrameWorkItem?.cancel()
         NotificationCenter.default.removeObserver(self)
+    }
+
+    @objc private func titlebarNeedsLayout(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow else { return }
+        // After AppKit finishes its own layout pass for this event.
+        DispatchQueue.main.async { [weak window] in
+            guard let window else { return }
+            TitlebarLayout.apply(to: window)
+        }
     }
 
     @objc private func windowFrameDidChange(_ notification: Notification) {
@@ -325,7 +385,7 @@ struct DetailView: View {
         }
     }
 
-    // MARK: - Titlebar strip (28pt, traditional)
+    // MARK: - Titlebar strip (TitlebarMetrics.height)
 
     private var titlebar: some View {
         HStack(spacing: 8) {
