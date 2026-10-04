@@ -78,6 +78,8 @@ struct SearchSheet: View {
         }
     }
 
+    private static let resultsHeight: CGFloat = 320
+
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
@@ -107,38 +109,43 @@ struct SearchSheet: View {
 
             Rectangle().fill(Theme.hairline).frame(height: 1)
 
-            if results.isEmpty {
-                Text("No matches")
-                    .font(.system(size: 12.5))
-                    .foregroundStyle(Theme.textTertiary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 24)
-            } else {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        VStack(spacing: 1) {
-                            ForEach(Array(results.enumerated()), id: \.element.id) { index, result in
-                                row(result, isHighlighted: index == highlighted)
-                                    .onTapGesture { choose(result) }
-                                    .onHover { if $0 { highlighted = index } }
+            // Fixed height, content pinned to the top: a sheet sized to its content
+            // is re-centered by the system whenever the result list shrinks, so
+            // the whole sheet would jump while typing.
+            ZStack(alignment: .top) {
+                if results.isEmpty {
+                    Text("No matches")
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(Theme.textTertiary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 24)
+                } else {
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            VStack(spacing: 1) {
+                                ForEach(Array(results.enumerated()), id: \.element.id) { index, result in
+                                    row(result, isHighlighted: index == highlighted)
+                                        .onTapGesture { choose(result) }
+                                        .onHover { if $0 { highlighted = index } }
+                                }
                             }
+                            .padding(8)
                         }
-                        .padding(8)
-                    }
-                    .frame(maxHeight: 320)
-                    // anchor: nil moves the minimum to reveal the row — a no-op when it
-                    // is already visible, so hovering never yanks the scroll position.
-                    .onChange(of: highlighted) { _, index in
-                        guard results.indices.contains(index) else { return }
-                        proxy.scrollTo(results[index].id, anchor: nil)
-                    }
-                    // Reopening ⌘K starts at the top even if the sheet was left
-                    // scrolled to the bottom.
-                    .onAppear {
-                        if let first = results.first { proxy.scrollTo(first.id, anchor: .top) }
+                        // anchor: nil moves the minimum to reveal the row — a no-op when it
+                        // is already visible, so hovering never yanks the scroll position.
+                        .onChange(of: highlighted) { _, index in
+                            guard results.indices.contains(index) else { return }
+                            proxy.scrollTo(results[index].id, anchor: nil)
+                        }
+                        // Reopening ⌘K starts at the top even if the sheet was left
+                        // scrolled to the bottom.
+                        .onAppear {
+                            if let first = results.first { proxy.scrollTo(first.id, anchor: .top) }
+                        }
                     }
                 }
             }
+            .frame(height: Self.resultsHeight, alignment: .top)
 
             Rectangle().fill(Theme.hairline).frame(height: 1)
 
