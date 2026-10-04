@@ -129,6 +129,7 @@ final class AppModel: ObservableObject {
             if let pane = selectedPane, pane != oldValue {
                 snapPaneViewportToBottom(pane)
             }
+            if selectedPane != oldValue { Task { @MainActor in await refreshActiveLayout() } }
         }
     }
 
@@ -154,6 +155,79 @@ final class AppModel: ObservableObject {
     /// Branch/ahead per space, local devices only (remote shows none). Keyed by `SpaceEntry.id`.
     @Published private(set) var gitStatuses: [String: GitStatus] = [:]
     private let gitStatusProvider = GitStatusProvider()
+
+    struct ActiveLayout: Equatable {
+        let tabID: String
+        let deviceID: UUID
+        let tree: SplitTree
+        let zoomed: Bool
+        let focusedPaneID: String
+    }
+
+    /// Layout of the tab the selected pane lives in, nil for single-pane tabs
+    /// or when herdr's data cannot be reconciled (the view then shows the
+    /// selected pane alone, exactly as before).
+    @Published private(set) var activeLayout: ActiveLayout?
+
+    /// Fetches `pane.layout` for the selected pane's tab and makes sure every
+    /// pane in it has a kept-alive attach, so the split can show them all.
+    func refreshActiveLayout() async {
+        guard let selected = selectedPane, let device = device(selected.deviceID) else {
+            activeLayout = nil
+            return
+        }
+        let service = service(for: device)
+        do {
+            let layout = try await service.paneLayout(paneID: selected.paneID)
+            guard selectedPane == selected else { return }   // user moved on mid-flight
+            guard layout.panes.count > 1, let tree = SplitTree.build(from: layout) else {
+                activeLayout = nil
+                return
+            }
+            for paneID in tree.paneIDs { ensureAttached(PaneRef(deviceID: device.id, paneID: paneID)) }
+            let next = ActiveLayout(
+                tabID: layout.tabID, deviceID: device.id, tree: tree,
+                zoomed: layout.zoomed, focusedPaneID: layout.focusedPaneID
+            )
+            if activeLayout != next { activeLayout = next }
+        } catch {
+            activeLayout = nil
+        }
+    }
+
+    private func ensureAttached(_ ref: PaneRef) {
+        guard let device = device(ref.deviceID) else { return }
+        let state = session(ref.deviceID)
+        let entry: AttachedEntry?
+        if let agent = state.agents.first(where: { $0.paneID == ref.paneID }) {
+            entry = .agent(agentEntry(device: device, agent: agent))
+        } else {
+            entry = terminalEntries(for: device).first { $0.pane.paneID == ref.paneID }.map { .terminal($0) }
+        }
+        if let entry, !attachSessions.contains(where: { $0.id == entry.id }) {
+            attachSessions.append(entry)
+        }
+    }
+
+    /// A click inside a split pane: keyboard + herdr focus move there.
+    func focusLayoutPane(_ paneID: String) {
+        guard let layout = activeLayout, selectedPane?.paneID != paneID else { return }
+        selectedPane = PaneRef(deviceID: layout.deviceID, paneID: paneID)
+        guard let device = device(layout.deviceID) else { return }
+        let service = service(for: device)
+        Task { @MainActor in try? await service.focusPane(paneID: paneID) }
+    }
+
+    func commitSplitRatio(divider: SplitDivider, ratio: Double) {
+        guard let layout = activeLayout, let device = device(layout.deviceID) else { return }
+        let service = service(for: device)
+        let clamped = min(max(ratio, 0.05), 0.95)
+        Task { @MainActor in
+            do { try await service.setSplitRatio(tabID: layout.tabID, path: divider.path, ratio: clamped) }
+            catch { actionError = error.localizedDescription }
+            await refreshActiveLayout()
+        }
+    }
 
     func gitStatus(for entry: SpaceEntry) -> GitStatus? { gitStatuses[entry.id] }
 
@@ -1199,6 +1273,7 @@ final class AppModel: ObservableObject {
             )
             sessions[deviceID]?.panes = snapshot.ordinaryTerminalPanes
             refreshGitStatuses(deviceID: deviceID)
+            Task { @MainActor in await refreshActiveLayout() }
             let paneIDs = Set((snapshot.panes ?? []).map(\.paneID))
                 .union(snapshot.agents.map(\.paneID))
             // Drop kept-alive attaches whose pane is gone (closed). A pane only taken
