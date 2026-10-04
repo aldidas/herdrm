@@ -320,17 +320,35 @@ struct TerminalSettingsView: View {
     @AppStorage(TerminalDefaults.thinStrokesKey) private var thinStrokes = true
     @AppStorage(TerminalDefaults.fontWeightKey) private var fontWeight = TerminalDefaults.defaultFontWeight
     @AppStorage(TerminalDefaults.lineSpacingKey) private var lineSpacing = TerminalDefaults.defaultLineSpacing
+    @AppStorage(TerminalThemeSetting.key) private var themeName = ""
     @AppStorage("terminal.mouseReporting") private var mouseReporting = true
     @AppStorage("terminal.copyOnSelect") private var copyOnSelect = true
 
+    @State private var themeQuery = ""
     @State private var importMessage: String?
     @State private var importSucceeded = false
 
     private let families = TerminalDefaults.monospacedFamilies()
 
+    private var filteredThemeNames: [String] {
+        let query = themeQuery.trimmingCharacters(in: .whitespaces)
+        guard !query.isEmpty else { return TerminalThemeSetting.allNames }
+        return TerminalThemeSetting.allNames.filter { $0.localizedCaseInsensitiveContains(query) }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Form {
+                Picker("Theme", selection: $themeName) {
+                    Text("Built-in (follows app appearance)").tag("")
+                    // A stored name the catalog no longer has must stay selectable.
+                    if !themeName.isEmpty, !TerminalThemeSetting.allNames.contains(themeName) {
+                        Text(themeName).tag(themeName)
+                    }
+                    ForEach(filteredThemeNames, id: \.self) { Text($0).tag($0) }
+                }
+                TextField("Filter themes", text: $themeQuery)
+                    .textFieldStyle(.roundedBorder)
                 Picker("Font", selection: $fontName) {
                     Text("System Mono (SF Mono)").tag("")
                     Divider()
@@ -406,6 +424,7 @@ struct TerminalSettingsView: View {
                 HStack(spacing: 10) {
                     Button("Reset to Defaults") {
                         fontName = ""
+                        themeName = ""
                         fontSize = TerminalDefaults.defaultFontSize
                         fontWeight = TerminalDefaults.defaultFontWeight
                         lineSpacing = TerminalDefaults.defaultLineSpacing
@@ -415,7 +434,7 @@ struct TerminalSettingsView: View {
                         importMessage = nil
                     }
                     Button("Import from Ghostty…") { importFromGhostty() }
-                        .help("Reads font-family and font-size from ~/.config/ghostty/config. A one-time copy — herdrm's settings stay in charge afterward.")
+                        .help("Reads font-family, font-size and theme from ~/.config/ghostty/config. A one-time copy — herdrm's settings stay in charge afterward.")
                 }
 
                 if let importMessage {
@@ -478,11 +497,22 @@ struct TerminalSettingsView: View {
             applied.append(String(format: "size %.1f pt", clamped))
         }
 
+        if config.theme != nil {
+            let preferDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            if let name = config.themeName(preferDark: preferDark),
+               let definition = TerminalThemeSetting.definition(named: name) {
+                themeName = definition.name
+                applied.append("theme \(definition.name)")
+            } else {
+                skipped.append("theme “\(config.themeName(preferDark: preferDark) ?? config.theme ?? "")” isn't bundled")
+            }
+        }
+
         if applied.isEmpty && skipped.isEmpty {
             importSucceeded = false
             importMessage = String(
                 localized: "ghostty.import.empty",
-                defaultValue: "Ghostty config has no font settings to import."
+                defaultValue: "Ghostty config has no font or theme settings to import."
             )
         } else if applied.isEmpty {
             importSucceeded = false

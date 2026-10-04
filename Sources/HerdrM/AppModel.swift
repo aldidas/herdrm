@@ -126,9 +126,11 @@ final class AppModel: ObservableObject {
                 unreadAgents.remove(AgentUnreadKey(deviceID: old.deviceID, paneID: old.paneID))
             }
             noteSelectedAttachSession()
+            if let pane = selectedPane, let space = spaceRef(of: pane) { lastPaneBySpace[space] = pane }
             if let pane = selectedPane, pane != oldValue {
                 snapPaneViewportToBottom(pane)
             }
+            if selectedPane != oldValue { Task { @MainActor in await refreshActiveLayout() } }
         }
     }
 
@@ -150,6 +152,115 @@ final class AppModel: ObservableObject {
     /// mounted (hidden) so switching back preserves its scrollback and running
     /// state instead of re-attaching. Evicted when its pane closes.
     @Published var attachSessions: [AttachedEntry] = []
+
+    /// Branch/ahead per space, local devices only (remote shows none). Keyed by `SpaceEntry.id`.
+    @Published private(set) var gitStatuses: [String: GitStatus] = [:]
+    private let gitStatusProvider = GitStatusProvider()
+
+    struct ActiveLayout: Equatable {
+        let tabID: String
+        let deviceID: UUID
+        let tree: SplitTree
+        let zoomed: Bool
+        let focusedPaneID: String
+    }
+
+    /// Layout of the tab the selected pane lives in, nil for single-pane tabs
+    /// or when herdr's data cannot be reconciled (the view then shows the
+    /// selected pane alone, exactly as before).
+    @Published private(set) var activeLayout: ActiveLayout?
+
+    /// Fetches `pane.layout` for the selected pane's tab and makes sure every
+    /// pane in it has a kept-alive attach, so the split can show them all.
+    func refreshActiveLayout() async {
+        let token = layoutGate.begin()
+        guard let selected = selectedPane, let device = device(selected.deviceID) else {
+            activeLayout = nil
+            return
+        }
+        let service = service(for: device)
+        do {
+            let layout = try await service.paneLayout(paneID: selected.paneID)
+            // A newer request started, or the user moved on mid-flight: drop this reply.
+            guard layoutGate.isCurrent(token), selectedPane == selected else { return }
+            guard layout.panes.count > 1, let tree = SplitTree.build(from: layout) else {
+                activeLayout = nil
+                return
+            }
+            // A zoomed tab shows one pane; do not take the hidden ones over.
+            if !layout.zoomed {
+                for paneID in tree.paneIDs { ensureAttached(PaneRef(deviceID: device.id, paneID: paneID)) }
+            }
+            let next = ActiveLayout(
+                tabID: layout.tabID, deviceID: device.id, tree: tree,
+                zoomed: layout.zoomed, focusedPaneID: layout.focusedPaneID
+            )
+            if activeLayout != next { activeLayout = next }
+        } catch {
+            guard layoutGate.isCurrent(token), selectedPane == selected else { return }
+            activeLayout = nil
+        }
+    }
+
+    private var layoutGate = LatestOnlyGate()
+
+    private func ensureAttached(_ ref: PaneRef) {
+        guard let device = device(ref.deviceID) else { return }
+        let state = session(ref.deviceID)
+        let entry: AttachedEntry?
+        if let agent = state.agents.first(where: { $0.paneID == ref.paneID }) {
+            entry = .agent(agentEntry(device: device, agent: agent))
+        } else {
+            entry = terminalEntries(for: device).first { $0.pane.paneID == ref.paneID }.map { .terminal($0) }
+        }
+        if let entry, !attachSessions.contains(where: { $0.id == entry.id }) {
+            attachSessions.append(entry)
+        }
+    }
+
+    /// A click inside a split pane: keyboard + herdr focus move there.
+    func focusLayoutPane(_ paneID: String) {
+        guard let layout = activeLayout, selectedPane?.paneID != paneID else { return }
+        selectedPane = PaneRef(deviceID: layout.deviceID, paneID: paneID)
+        guard let device = device(layout.deviceID) else { return }
+        let service = service(for: device)
+        Task { @MainActor in try? await service.focusPane(paneID: paneID) }
+    }
+
+    func commitSplitRatio(divider: SplitDivider, ratio: Double) {
+        guard let layout = activeLayout, let device = device(layout.deviceID) else { return }
+        let service = service(for: device)
+        let clamped = min(max(ratio, 0.05), 0.95)
+        Task { @MainActor in
+            do { try await service.setSplitRatio(tabID: layout.tabID, path: divider.path, ratio: clamped) }
+            catch { actionError = error.localizedDescription }
+            await refreshActiveLayout()
+        }
+    }
+
+    func gitStatus(for entry: SpaceEntry) -> GitStatus? { gitStatuses[entry.id] }
+
+    func refreshGitStatuses(deviceID: UUID) {
+        guard let device = device(deviceID), device.isLocal else { return }
+        let state = session(deviceID)
+        let candidates: [(workspaceID: String, cwd: String?)] =
+            state.agents.map { ($0.workspaceID, $0.cwd) } + state.panes.map { ($0.workspaceID, $0.cwd) }
+        let spaces = state.workspaces
+        Task { @MainActor in
+            var updates: [String: GitStatus] = [:]
+            var staleKeys: [String] = []
+            for workspace in spaces {
+                let key = SpaceEntry(device: device, workspace: workspace).id
+                guard let directory = WorkspaceDirectory.resolve(
+                    workspaceID: workspace.workspaceID, candidates: candidates
+                ), let status = await gitStatusProvider.status(forDirectory: directory)
+                else { staleKeys.append(key); continue }
+                updates[key] = status
+            }
+            for key in staleKeys { gitStatuses[key] = nil }
+            for (key, status) in updates where gitStatuses[key] != status { gitStatuses[key] = status }
+        }
+    }
 
     /// Keeps the selected pane's attach alive so switching back preserves its content.
     /// Runs synchronously inside the `selectedPane` assignment, so the kept-alive entry
@@ -398,13 +509,17 @@ final class AppModel: ObservableObject {
     /// Agents across the scope, filtered by selected space, in herdr tab order
     /// (device → workspace → snapshot array) so sidebar drag matches the TUI.
     var visibleAgents: [AgentEntry] {
-        var entries = devicesInScope.flatMap { device in
-            session(device.id).agents.map { agentEntry(device: device, agent: $0) }
+        guard let space = selectedSpace else { return agentsInScope }
+        return agentsInScope.filter {
+            $0.device.id == space.deviceID && $0.agent.workspaceID == space.workspaceID
         }
-        if let space = selectedSpace {
-            entries = entries.filter {
-                $0.device.id == space.deviceID && $0.agent.workspaceID == space.workspaceID
-            }
+    }
+
+    /// Every agent on the devices in scope, whatever space is selected — what
+    /// the sidebar's Agents section lists.
+    var agentsInScope: [AgentEntry] {
+        let entries = devicesInScope.flatMap { device in
+            session(device.id).agents.map { agentEntry(device: device, agent: $0) }
         }
         let deviceRank = Dictionary(uniqueKeysWithValues: devicesInScope.enumerated().map { ($1.id, $0) })
         return entries.sorted { lhs, rhs in
@@ -557,7 +672,58 @@ final class AppModel: ObservableObject {
             if ref == nil { return }
             if entry.device.id == ref!.deviceID && entry.workspaceID == ref!.workspaceID { return }
         }
+        if let ref, let landing = landingPane(in: ref) {
+            let wasRemembered = lastPaneBySpace[ref] == landing
+            selectedPane = landing
+            if !wasRemembered { landOnFocusedPane(of: landing) }
+            return
+        }
         selectedPane = preferredVisibleAgent()?.ref ?? firstVisiblePaneRef
+    }
+
+    /// Where the user last was in each space, so switching back returns there
+    /// instead of the first tab's first pane.
+    private var lastPaneBySpace: [SpaceRef: PaneRef] = [:]
+
+    private func spaceRef(of pane: PaneRef) -> SpaceRef? {
+        let state = session(pane.deviceID)
+        let workspaceID = state.agents.first { $0.paneID == pane.paneID }?.workspaceID
+            ?? state.panes.first { $0.paneID == pane.paneID }?.workspaceID
+        return workspaceID.map { SpaceRef(deviceID: pane.deviceID, workspaceID: $0) }
+    }
+
+    /// The remembered pane, else a pane in herdr's active tab for the space.
+    private func landingPane(in space: SpaceRef) -> PaneRef? {
+        let state = session(space.deviceID)
+        let agents = state.agents.filter { $0.workspaceID == space.workspaceID }
+        let terminals = state.panes.filter { $0.workspaceID == space.workspaceID }
+        let paneID = SpaceLanding.paneToSelect(
+            remembered: lastPaneBySpace[space]?.paneID,
+            existingPaneIDs: Set(agents.map(\.paneID) + terminals.map(\.paneID)),
+            activeTabID: state.workspaces.first { $0.workspaceID == space.workspaceID }?.activeTabID,
+            agentPanes: agents.map { ($0.paneID, $0.tabID) },
+            terminalPanes: terminals.map { ($0.paneID, $0.tabID) }
+        )
+        return paneID.map { PaneRef(deviceID: space.deviceID, paneID: $0) }
+    }
+
+    /// herdr remembers which pane has focus inside a tab, but only `pane.layout`
+    /// says so. Move the selection there unless the user has already moved on.
+    private func landOnFocusedPane(of landing: PaneRef) {
+        guard let device = device(landing.deviceID) else { return }
+        let service = service(for: device)
+        Task { @MainActor in
+            guard let layout = try? await service.paneLayout(paneID: landing.paneID),
+                  selectedPane == landing,
+                  layout.focusedPaneID != landing.paneID,
+                  layout.panes.contains(where: { $0.paneID == layout.focusedPaneID })
+            else { return }
+            let state = session(landing.deviceID)
+            guard state.agents.contains(where: { $0.paneID == layout.focusedPaneID })
+                || state.panes.contains(where: { $0.paneID == layout.focusedPaneID })
+            else { return }
+            selectedPane = PaneRef(deviceID: landing.deviceID, paneID: layout.focusedPaneID)
+        }
     }
 
     func setDeviceFilter(_ id: UUID?) {
@@ -614,6 +780,93 @@ final class AppModel: ObservableObject {
         isFileManagerActive = false
         selectedPane = ref
         selectedShellID = nil
+    }
+
+    // MARK: - Tabs
+
+    func tabs(in space: SpaceRef) -> [TabInfo] {
+        session(space.deviceID).tabs.filter { $0.workspaceID == space.workspaceID }
+    }
+
+    /// The space whose tab bar is shown: the selected pane's space (the sidebar
+    /// lists agents from every space, so the pane can be outside the selected
+    /// space), else the explicit space selection.
+    var tabBarSpace: SpaceRef? {
+        if let pane = selectedPane {
+            let state = session(pane.deviceID)
+            let workspaceID = state.agents.first { $0.paneID == pane.paneID }?.workspaceID
+                ?? state.panes.first { $0.paneID == pane.paneID }?.workspaceID
+            if let workspaceID { return SpaceRef(deviceID: pane.deviceID, workspaceID: workspaceID) }
+        }
+        return selectedSpace
+    }
+
+    func activeTabID(in space: SpaceRef) -> String? {
+        let state = session(space.deviceID)
+        let selectedTab: String? = selectedPane.flatMap { pane in
+            guard pane.deviceID == space.deviceID else { return nil }
+            return state.agents.first { $0.paneID == pane.paneID }?.tabID
+                ?? state.panes.first { $0.paneID == pane.paneID }?.tabID
+        }
+        return TabSelection.activeTabID(
+            selectedPaneTabID: selectedTab,
+            workspaceActiveTabID: state.workspaces.first { $0.workspaceID == space.workspaceID }?.activeTabID,
+            tabIDs: tabs(in: space).map(\.tabID)
+        )
+    }
+
+    func selectTab(_ tab: TabInfo, deviceID: UUID) {
+        let state = session(deviceID)
+        if let paneID = TabSelection.paneToSelect(
+            tabID: tab.tabID,
+            agentPanes: state.agents.map { ($0.paneID, $0.tabID) },
+            terminalPanes: state.panes.map { ($0.paneID, $0.tabID) }
+        ) {
+            selectAgent(PaneRef(deviceID: deviceID, paneID: paneID))
+        }
+        guard let device = device(deviceID) else { return }
+        let service = service(for: device)
+        Task { @MainActor in
+            do { try await service.focusTab(tabID: tab.tabID) } catch {
+                actionError = error.localizedDescription
+            }
+        }
+    }
+
+    func newTab(in space: SpaceRef) {
+        guard let device = device(space.deviceID) else { return }
+        let service = service(for: device)
+        Task { @MainActor in
+            do {
+                let paneID = try await service.createTab(workspaceID: space.workspaceID, cwd: nil, label: nil)
+                _ = await refreshImmediately(space.deviceID)
+                selectAgent(PaneRef(deviceID: space.deviceID, paneID: paneID))
+            } catch {
+                actionError = error.localizedDescription
+            }
+        }
+    }
+
+    func requestCloseTab(_ tab: TabInfo, deviceID: UUID) {
+        closeRequest = CloseRequest(
+            title: String(localized: "Close tab \"\(tab.customLabel ?? tab.label)\"?"),
+            message: String(localized: "Every pane in the tab and whatever is running inside will be terminated.")
+        ) { [weak self] in
+            self?.closeTab(tab, deviceID: deviceID)
+        }
+    }
+
+    private func closeTab(_ tab: TabInfo, deviceID: UUID) {
+        guard let device = device(deviceID) else { return }
+        let service = service(for: device)
+        Task { @MainActor in
+            do {
+                try await service.closeTab(tabID: tab.tabID)
+                _ = await refreshImmediately(deviceID)
+            } catch {
+                actionError = error.localizedDescription
+            }
+        }
     }
 
     var selectedShell: ShellSession? {
@@ -1094,6 +1347,8 @@ final class AppModel: ObservableObject {
                 workspaces: snapshot.workspaces
             )
             sessions[deviceID]?.panes = snapshot.ordinaryTerminalPanes
+            refreshGitStatuses(deviceID: deviceID)
+            if selectedPane?.deviceID == deviceID { Task { @MainActor in await refreshActiveLayout() } }
             let paneIDs = Set((snapshot.panes ?? []).map(\.paneID))
                 .union(snapshot.agents.map(\.paneID))
             // Drop kept-alive attaches whose pane is gone (closed). A pane only taken

@@ -456,6 +456,7 @@ struct DetailView: View {
     @AppStorage(TerminalDefaults.thinStrokesKey) private var terminalThinStrokes = true
     @AppStorage(TerminalDefaults.fontWeightKey) private var terminalFontWeight = TerminalDefaults.defaultFontWeight
     @AppStorage(TerminalDefaults.lineSpacingKey) private var terminalLineSpacing = TerminalDefaults.defaultLineSpacing
+    @AppStorage(TerminalThemeSetting.key) private var terminalThemeName = ""
     @AppStorage("terminal.mouseReporting") private var terminalMouseReporting = true
     @AppStorage("terminal.copyOnSelect") private var terminalCopyOnSelect = true
     @Environment(\.colorScheme) private var colorScheme
@@ -471,6 +472,17 @@ struct DetailView: View {
 
     @ViewBuilder
     private var terminal: some View {
+        VStack(spacing: 0) {
+            if let space = model.tabBarSpace, model.selectedShellID == nil, !model.isFileManagerActive,
+               !model.tabs(in: space).isEmpty {
+                SpaceTabBar(model: model, space: space)
+            }
+            terminalStack
+        }
+    }
+
+    @ViewBuilder
+    private var terminalStack: some View {
         ZStack {
             attachedTerminal
             // Standalone shells stay in the hierarchy while deselected: unlike a
@@ -486,6 +498,7 @@ struct DetailView: View {
                     fontWeight: terminalFontWeight,
                     lineSpacing: terminalLineSpacing,
                     dark: colorScheme == .dark,
+                    themeName: terminalThemeName,
                     mouseReporting: terminalMouseReporting,
                     copyOnSelect: terminalCopyOnSelect,
                     isVisible: model.selectedShellID == session.id && !model.isFileManagerActive,
@@ -524,10 +537,24 @@ struct DetailView: View {
                 // selection — or opening/closing the split — never tears a terminal
                 // down: its content survives the round trip. Do not key this on the
                 // selection; that rebuild-on-switch is exactly what this removes.
-                ZStack {
-                    ForEach(model.attachSessions) { session in
-                        attachChild(session, isSelected: session.id == entry.id)
+                GeometryReader { proxy in
+                    ZStack(alignment: .topLeading) {
+                        ForEach(model.attachSessions) { session in
+                            let frame = placement(for: session, in: proxy.size)
+                            attachChild(session, isSelected: session.id == entry.id, placed: frame != nil)
+                                .frame(
+                                    width: frame?.width ?? proxy.size.width,
+                                    height: frame?.height ?? proxy.size.height
+                                )
+                                .offset(x: frame?.minX ?? 0, y: frame?.minY ?? 0)
+                        }
+                        if let layout = splitLayout {
+                            SplitDividersOverlay(layout: layout, size: proxy.size) { divider, ratio in
+                                model.commitSplitRatio(divider: divider, ratio: ratio)
+                            }
+                        }
                     }
+                    .coordinateSpace(name: "terminalArea")
                 }
             } second: {
                 ShellTerminalView(
@@ -537,6 +564,7 @@ struct DetailView: View {
                     fontWeight: terminalFontWeight,
                     lineSpacing: terminalLineSpacing,
                     dark: colorScheme == .dark,
+                    themeName: terminalThemeName,
                     mouseReporting: terminalMouseReporting,
                     copyOnSelect: terminalCopyOnSelect,
                     isVisible: model.selectedShellID == nil && !model.isFileManagerActive,
@@ -627,10 +655,34 @@ struct DetailView: View {
         }
     }
 
+    /// The layout to draw, or nil when only the selected pane shows (single
+    /// pane, zoomed, or data that could not be reconciled).
+    private var splitLayout: AppModel.ActiveLayout? {
+        guard let layout = model.activeLayout, !layout.zoomed,
+              let selected = model.selectedPane,
+              layout.deviceID == selected.deviceID,
+              layout.tree.contains(paneID: selected.paneID)
+        else { return nil }
+        return layout
+    }
+
+    /// Pixel frame of an attach child inside the terminal area, or nil when it
+    /// is not part of the visible arrangement (then the old rule applies:
+    /// full-size, visible only if it is the selected pane).
+    private func placement(for session: AppModel.AttachedEntry, in size: CGSize) -> CGRect? {
+        guard let layout = splitLayout, session.ref.deviceID == layout.deviceID,
+              let unit = layout.tree.frames()[session.ref.paneID]
+        else { return nil }
+        return CGRect(
+            x: unit.x * size.width, y: unit.y * size.height,
+            width: unit.width * size.width, height: unit.height * size.height
+        )
+    }
+
     /// One kept-alive attach. Stays in the hierarchy while deselected (opacity 0, no hit
     /// testing) so its content survives; the selected one is visible and interactive.
     @ViewBuilder
-    private func attachChild(_ session: AppModel.AttachedEntry, isSelected: Bool) -> some View {
+    private func attachChild(_ session: AppModel.AttachedEntry, isSelected: Bool, placed: Bool) -> some View {
         let attachmentCapabilities: AgentAttachmentCapabilities? = {
             guard case .agent(let agentEntry) = session else { return nil }
             return model.attachmentCapabilities(for: agentEntry)
@@ -648,12 +700,15 @@ struct DetailView: View {
                 fontWeight: terminalFontWeight,
                 lineSpacing: terminalLineSpacing,
                 dark: colorScheme == .dark,
+                    themeName: terminalThemeName,
                 mouseReporting: terminalMouseReporting,
                 copyOnSelect: terminalCopyOnSelect,
                 // A selected shell or the file manager covers the attach side.
-                isVisible: isSelected && model.selectedShellID == nil && !model.isFileManagerActive,
+                isVisible: (isSelected || placed) && model.selectedShellID == nil && !model.isFileManagerActive,
                 onAttachmentError: { model.actionError = $0 },
                 onAttachmentUploadingChanged: { uploadingAttachment = $0 },
+                onFocused: { model.focusLayoutPane(session.ref.paneID) },
+                focusOnCreate: isSelected,
                 onExit: { code in endedAttach[session.id] = code }
             )
                 // Keyed on the retry generation only — NOT colorScheme. A theme toggle
@@ -674,8 +729,13 @@ struct DetailView: View {
         // the compositing group gives the text an opaque background to blend
         // against, matching the pre-keep-alive single-view rendering.
         .background(Theme.terminalBackground)
-        .opacity(isSelected ? 1 : 0)
-        .allowsHitTesting(isSelected)
+        .opacity(isSelected || placed ? 1 : 0)
+        .allowsHitTesting(isSelected || placed)
+        .overlay {
+            if placed, isSelected {
+                Rectangle().strokeBorder(Theme.working.opacity(0.8), lineWidth: 1).allowsHitTesting(false)
+            }
+        }
     }
 
     /// ssh exits 255 for transport failures; everything else is the far end closing
@@ -1766,6 +1826,72 @@ struct EditDeviceSheet: View {
         .onAppear {
             name = device.name
             target = device.sshTarget ?? ""
+        }
+    }
+}
+
+
+/// Draggable dividers for a herdr split tree. Dragging previews locally and
+/// commits one absolute ratio on release (`layout.set_split_ratio`), after
+/// which the refreshed layout replaces the preview.
+private struct SplitDividersOverlay: View {
+    let layout: AppModel.ActiveLayout
+    let size: CGSize
+    let onCommit: (SplitDivider, Double) -> Void
+    @State private var dragging: (id: String, ratio: Double)?
+
+    var body: some View {
+        ForEach(layout.tree.dividers(), id: \.id) { divider in
+            let current = dragging?.id == divider.id ? (dragging?.ratio ?? divider.ratio) : divider.ratio
+            let rect = dividerRect(divider, ratio: current)
+            Rectangle()
+                .fill(Theme.hairline)
+                .frame(width: rect.width, height: rect.height)
+                .overlay(
+                    Color.clear
+                        .frame(width: divider.direction == .right ? 9 : nil,
+                               height: divider.direction == .down ? 9 : nil)
+                        .contentShape(Rectangle())
+                        .gesture(
+                            DragGesture(coordinateSpace: .named("terminalArea"))
+                                .onChanged { value in
+                                    dragging = (divider.id, ratio(for: value.location, in: divider))
+                                }
+                                .onEnded { value in
+                                    let final = ratio(for: value.location, in: divider)
+                                    dragging = nil
+                                    onCommit(divider, final)
+                                }
+                        )
+                        .onHover { inside in
+                            if inside {
+                                (divider.direction == .right ? NSCursor.resizeLeftRight : NSCursor.resizeUpDown).push()
+                            } else {
+                                NSCursor.pop()
+                            }
+                        }
+                )
+                .offset(x: rect.minX, y: rect.minY)
+        }
+    }
+
+    private func dividerRect(_ divider: SplitDivider, ratio: Double) -> CGRect {
+        let r = divider.region
+        switch divider.direction {
+        case .right:
+            let x = (r.x + r.width * ratio) * size.width
+            return CGRect(x: x, y: r.y * size.height, width: 1, height: r.height * size.height)
+        case .down:
+            let y = (r.y + r.height * ratio) * size.height
+            return CGRect(x: r.x * size.width, y: y, width: r.width * size.width, height: 1)
+        }
+    }
+
+    private func ratio(for point: CGPoint, in divider: SplitDivider) -> Double {
+        let r = divider.region
+        switch divider.direction {
+        case .right: return min(max((point.x / size.width - r.x) / r.width, 0.05), 0.95)
+        case .down: return min(max((point.y / size.height - r.y) / r.height, 0.05), 0.95)
         }
     }
 }

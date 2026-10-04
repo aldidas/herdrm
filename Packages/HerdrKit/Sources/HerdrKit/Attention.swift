@@ -69,3 +69,16 @@ public enum AgentUnread: Sendable {
         return next
     }
 }
+
+extension SpaceAttention {
+    /// What a status ring should show for this rollup, including the
+    /// unread-done dot that herdr's own aggregate status cannot express.
+    public var ring: (status: AgentStatus, unreadDone: Bool) {
+        switch self {
+        case .blocked: return (.blocked, false)
+        case .working: return (.working, false)
+        case .unreadDone: return (.done, true)
+        case .none: return (.idle, false)
+        }
+    }
+}

@@ -46,6 +46,8 @@ targets:
         product: HerdrTailcat
       - package: GhosttyTerminal
         product: GhosttyTerminal
+      - package: GhosttyTerminal
+        product: GhosttyTheme
       - package: Sparkle
       - package: StickySectionHeaders
     info:
