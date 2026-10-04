@@ -847,6 +847,115 @@ final class AppModel: ObservableObject {
         }
     }
 
+    // MARK: - herdr keybindings
+
+    /// Set by a rename-tab key or a double-click; `SpaceTabBar` shows the dialog.
+    @Published var tabToRename: TabInfo?
+    /// Installed by the view that owns the sidebar state.
+    var toggleSidebarHandler: (() -> Void)?
+
+    /// Runs one herdr action (from a prefix chord or a direct chord) against
+    /// the current selection.
+    func perform(_ action: HerdrAction, index: Int?) {
+        let space = tabBarSpace
+        switch action {
+        case .switchTab:
+            guard let space, let index, index >= 1 else { return }
+            let tabs = tabs(in: space)
+            if index <= tabs.count { selectTab(tabs[index - 1], deviceID: space.deviceID) }
+        case .nextTab, .previousTab:
+            guard let space else { return }
+            let tabs = tabs(in: space)
+            guard tabs.count > 1 else { return }
+            let current = activeTabID(in: space).flatMap { id in tabs.firstIndex { $0.tabID == id } } ?? 0
+            let step = action == .nextTab ? 1 : tabs.count - 1
+            selectTab(tabs[(current + step) % tabs.count], deviceID: space.deviceID)
+        case .newTab:
+            if let space { newTab(in: space) }
+        case .renameTab:
+            if let space, let id = activeTabID(in: space) {
+                tabToRename = tabs(in: space).first { $0.tabID == id }
+            }
+        case .closeTab:
+            if let space, let id = activeTabID(in: space), tabs(in: space).count > 1,
+               let tab = tabs(in: space).first(where: { $0.tabID == id }) {
+                requestCloseTab(tab, deviceID: space.deviceID)
+            }
+        case .workspacePicker, .goto:
+            // The ⌘K search sheet lists spaces, agents and terminals across devices.
+            showSearch = true
+        case .newWorkspace:
+            showNewSpace = true
+        case .renameWorkspace:
+            spaceToRename = visibleSpaces.first { $0.ref == space }
+        case .closeWorkspace:
+            if let entry = visibleSpaces.first(where: { $0.ref == space }) { requestCloseSpace(entry) }
+        case .switchWorkspace:
+            let spaces = visibleSpaces
+            if let index, index >= 1, index <= spaces.count { selectSpace(spaces[index - 1].ref) }
+        case .nextWorkspace, .previousWorkspace:
+            let spaces = visibleSpaces
+            guard spaces.count > 1 else { return }
+            let current = spaces.firstIndex { $0.ref == space } ?? 0
+            let step = action == .nextWorkspace ? 1 : spaces.count - 1
+            selectSpace(spaces[(current + step) % spaces.count].ref)
+        case .focusPaneLeft: focusNeighbor("left")
+        case .focusPaneRight: focusNeighbor("right")
+        case .focusPaneUp: focusNeighbor("up")
+        case .focusPaneDown: focusNeighbor("down")
+        case .cyclePaneNext, .cyclePanePrevious:
+            guard let layout = activeLayout, let selected = selectedPane,
+                  let at = layout.tree.paneIDs.firstIndex(of: selected.paneID) else { return }
+            let ids = layout.tree.paneIDs
+            let step = action == .cyclePaneNext ? 1 : ids.count - 1
+            focusLayoutPane(ids[(at + step) % ids.count])
+        case .zoom:
+            guard let selected = selectedPane, let device = device(selected.deviceID) else { return }
+            let service = service(for: device)
+            Task { @MainActor in
+                do { try await service.zoomPane(paneID: selected.paneID) } catch {
+                    actionError = error.localizedDescription
+                }
+                await refreshActiveLayout()
+            }
+        case .closePane:
+            guard let selected = selectedPane, let entry = selectedAttachedEntry else { return }
+            switch entry {
+            case .agent(let agent): requestClosePane(selected, name: agent.title)
+            case .terminal(let terminal): requestClosePane(selected, name: terminal.title)
+            }
+        case .splitVertical: splitSelected(direction: "right")
+        case .splitHorizontal: splitSelected(direction: "down")
+        case .toggleSidebar: toggleSidebarHandler?()
+        }
+    }
+
+    private func focusNeighbor(_ direction: String) {
+        guard let selected = selectedPane, let device = device(selected.deviceID) else { return }
+        let service = service(for: device)
+        Task { @MainActor in
+            guard selectedPane == selected,
+                  let focused = try? await service.focusPane(paneID: selected.paneID, direction: direction)
+            else { return }
+            // herdr already moved its own focus; only the selection follows.
+            selectedPane = PaneRef(deviceID: selected.deviceID, paneID: focused)
+        }
+    }
+
+    private func splitSelected(direction: String) {
+        guard let selected = selectedPane, let device = device(selected.deviceID) else { return }
+        let service = service(for: device)
+        Task { @MainActor in
+            do {
+                let created = try await service.splitPane(paneID: selected.paneID, direction: direction)
+                _ = await refreshImmediately(selected.deviceID)
+                if let created { selectedPane = PaneRef(deviceID: selected.deviceID, paneID: created) }
+            } catch {
+                actionError = error.localizedDescription
+            }
+        }
+    }
+
     func requestCloseTab(_ tab: TabInfo, deviceID: UUID) {
         closeRequest = CloseRequest(
             title: String(localized: "Close tab \"\(tab.customLabel ?? tab.label)\"?"),

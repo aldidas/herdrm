@@ -83,6 +83,11 @@ auto-bumped after each release.
   `pane.focus {pane_id}` / `tab.focus {tab_id}` focus by id (`pane.resize`/`pane.focus_direction` are directional
   only). Split ids encode the path (`split_1_0` = first child of the root). The Sidebar/tab bar/split view use these:
   `SpaceTabBar` (tabs from `session.tabs`), `AppModel.activeLayout` + frame placement in `ContentView.attachedTerminal`.
+- herdr keybindings: panes attach one at a time, so herdr's TUI never sees `prefix+key` chords. `HerdrKeyRouter`
+  (an `NSEvent` local monitor) reads `[keys]` from `~/.config/herdr/config.toml` (`HerdrKit/HerdrKeymap.swift`,
+  defaults from the docs, prefix state machine `KeyPrefixMachine`) and runs `AppModel.perform(_:index:)`. Direct
+  chords like `ctrl+1..9` work without the prefix; prefix twice sends the literal key; remote devices use the local
+  config. Unsupported actions (copy/resize mode, detach) are swallowed after the prefix.
 - Git branch/ahead per space comes from `GitStatusProvider` (reads `.git/HEAD`, `git rev-list` for ahead); local
   devices only.
 - Agent status buckets sort Blocked > Done > Working > Idle (matches Heeler).

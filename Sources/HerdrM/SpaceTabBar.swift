@@ -5,7 +5,6 @@ import SwiftUI
 struct SpaceTabBar: View {
     @ObservedObject var model: AppModel
     let space: SpaceRef
-    @State private var renaming: TabInfo?
     @State private var renameText = ""
 
     var body: some View {
@@ -31,10 +30,16 @@ struct SpaceTabBar: View {
         .frame(height: 32)
         .background(Theme.statusBarBackground)
         .overlay(alignment: .bottom) { Rectangle().fill(Theme.hairline).frame(height: 1) }
-        .alert("Rename Tab", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
+        .onChange(of: model.tabToRename) { _, tab in
+            if let tab { renameText = tab.customLabel ?? tab.label }
+        }
+        .alert("Rename Tab", isPresented: Binding(
+            get: { model.tabToRename != nil },
+            set: { if !$0 { model.tabToRename = nil } }
+        )) {
             TextField("Name", text: $renameText)
             Button("Rename") { commitRename() }
-            Button("Cancel", role: .cancel) { renaming = nil }
+            Button("Cancel", role: .cancel) { model.tabToRename = nil }
         }
     }
 
@@ -62,16 +67,15 @@ struct SpaceTabBar: View {
         .background(selected ? Theme.terminalBackground : Color.clear)
         .contentShape(Rectangle())
         .onTapGesture(count: 2) {
-            renameText = tab.customLabel ?? tab.label
-            renaming = tab
+            model.tabToRename = tab
         }
         .onTapGesture { model.selectTab(tab, deviceID: space.deviceID) }
     }
 
     private func commitRename() {
-        guard let tab = renaming else { return }
+        guard let tab = model.tabToRename else { return }
         let label = renameText.trimmingCharacters(in: .whitespaces)
-        renaming = nil
+        model.tabToRename = nil
         guard !label.isEmpty, let device = model.device(space.deviceID) else { return }
         let service = model.service(for: device)
         Task { @MainActor in

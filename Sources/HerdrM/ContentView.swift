@@ -53,6 +53,8 @@ struct RootView: View {
             }
         }
         .animation(.spring(response: 0.25, dampingFraction: 0.85), value: model.showDevicePanel)
+        .herdrKeybindings(model: model)
+        .onAppear { model.toggleSidebarHandler = { sidebarCollapsed.toggle() } }
         .background(
             Button("") { sidebarCollapsed.toggle() }
                 .keyboardShortcut("b", modifiers: .command)

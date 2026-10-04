@@ -385,6 +385,31 @@ public actor HerdrService {
         )
     }
 
+    /// Focuses the neighbor of `paneID` in `direction` (left/right/up/down).
+    /// Returns the pane herdr focused, or nil when there is no neighbor.
+    public func focusPane(paneID: String, direction: String) async throws -> String? {
+        let result = try await client().request(
+            method: "pane.focus_direction",
+            params: .object(["pane_id": .string(paneID), "direction": .string(direction)])
+        )
+        guard let focused = result["focus"]?["focused_pane_id"]?.stringValue, focused != paneID
+        else { return nil }
+        return focused
+    }
+
+    /// Splits `paneID` (`right` or `down`), focusing the new pane. Returns its id.
+    public func splitPane(paneID: String, direction: String) async throws -> String? {
+        let result = try await client().request(
+            method: "pane.split",
+            params: .object([
+                "target_pane_id": .string(paneID),
+                "direction": .string(direction),
+                "focus": .bool(true),
+            ])
+        )
+        return result["pane"]?["pane_id"]?.stringValue
+    }
+
     public func zoomPane(paneID: String, mode: String = "toggle") async throws {
         _ = try await client().request(
             method: "pane.zoom",
