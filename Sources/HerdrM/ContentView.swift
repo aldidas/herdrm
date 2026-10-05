@@ -338,6 +338,7 @@ struct DetailView: View {
     @ObservedObject var model: AppModel
     @Binding var sidebarCollapsed: Bool
     @State private var hasOpenedFileManager = false
+    @State private var showUsage = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -372,6 +373,37 @@ struct DetailView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.contentBackground.ignoresSafeArea())
+        .overlay(alignment: .topTrailing) { usagePanel }
+        .animation(.spring(response: 0.25, dampingFraction: 0.85), value: showUsage)
+        .onChange(of: model.selectedAttachedEntry?.id) { _, _ in showUsage = false }
+    }
+
+    /// The selected agent's usage, if its plugin publishes any.
+    private var selectedAgentUsage: (kind: String, usage: AgentUsage)? {
+        guard case .agent(let entry)? = model.selectedAttachedEntry,
+              model.selectedShellID == nil, !model.isFileManagerActive,
+              let usage = entry.agent.usage
+        else { return nil }
+        return (entry.agent.agent, usage)
+    }
+
+    @ViewBuilder
+    private var usagePanel: some View {
+        if showUsage, let current = selectedAgentUsage {
+            ZStack(alignment: .topTrailing) {
+                Color.black.opacity(0.001)
+                    .onTapGesture { showUsage = false }
+                UsagePopover(agentKind: current.kind, usage: current.usage)
+                    .padding(.top, TitlebarMetrics.height + 6)
+                    .padding(.trailing, 12)
+                    .transition(.scale(scale: 0.96, anchor: .topTrailing).combined(with: .opacity))
+                    .background(
+                        Button("") { showUsage = false }
+                            .keyboardShortcut(.cancelAction)
+                            .hidden()
+                    )
+            }
+        }
     }
 
     private var detailContent: some View {
@@ -426,26 +458,48 @@ struct DetailView: View {
                     switch attached {
                     case .agent(let entry):
                         let agent = entry.agent
-                        statusGlyph(agent.status)
+                        // Only the usage badge takes clicks; the rest stays inert so
+                        // the strip keeps dragging the window (see the Group below).
+                        statusGlyph(agent.status).allowsHitTesting(false)
                         Text(entry.title)
                             .font(.system(size: 13, weight: .medium))
                             .foregroundStyle(Theme.text)
                             .lineLimit(1)
                             .layoutPriority(1)
                             .help((agent.cwd as NSString?)?.abbreviatingWithTildeInPath ?? "")
+                            .allowsHitTesting(false)
                         Spacer(minLength: 12)
-                        AgentKindBadge(kind: agent.agent)
-                        Text("\u{b7}")
-                            .font(.system(size: 11.5))
-                            .foregroundStyle(Theme.textGhost)
-                        Text(model.spaceName(deviceID: entry.device.id, workspaceID: agent.workspaceID))
-                            .font(.system(size: 11.5))
-                            .foregroundStyle(Theme.textTertiary)
-                            .lineLimit(1)
-                        if model.showsRowDeviceBadges {
-                            DeviceChip(device: entry.device)
+                        if agent.usage != nil {
+                            Button { showUsage.toggle() } label: {
+                                AgentKindBadge(kind: agent.agent)
+                                    .padding(.horizontal, 5)
+                                    .padding(.vertical, 2)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 5)
+                                            .fill(showUsage ? AnyShapeStyle(Theme.itemWashSelected) : AnyShapeStyle(.clear))
+                                    )
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .help("Usage")
+                            .accessibilityIdentifier("titlebar.usage")
+                        } else {
+                            AgentKindBadge(kind: agent.agent)
                         }
-                        statusPill(agent.status)
+                        Group {
+                            Text("\u{b7}")
+                                .font(.system(size: 11.5))
+                                .foregroundStyle(Theme.textGhost)
+                            Text(model.spaceName(deviceID: entry.device.id, workspaceID: agent.workspaceID))
+                                .font(.system(size: 11.5))
+                                .foregroundStyle(Theme.textTertiary)
+                                .lineLimit(1)
+                            if model.showsRowDeviceBadges {
+                                DeviceChip(device: entry.device)
+                            }
+                            statusPill(agent.status)
+                        }
+                        .allowsHitTesting(false)
                     case .terminal(let entry):
                         Image(systemName: "terminal")
                             .font(.system(size: 12, weight: .semibold))
@@ -472,7 +526,7 @@ struct DetailView: View {
                     Spacer()
                 }
             }
-            .allowsHitTesting(false)
+            .allowsHitTesting(selectedAgentUsage != nil)
         }
         .padding(.leading, sidebarCollapsed ? 10 : 14)
         .padding(.trailing, 12)

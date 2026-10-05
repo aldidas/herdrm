@@ -51,6 +51,8 @@ public struct AgentInfo: Codable, Sendable, Identifiable, Equatable {
     public var agent: String { agentKindRaw ?? "agent" }
     /// Sidebar stats lines (account, model, context, usage) read off `tokens`.
     public var statsLines: [AgentStatsLine] { AgentStatsLine.lines(from: tokens ?? [:]) }
+    /// Usage windows for the titlebar popup; nil when no plugin publishes any.
+    public var usage: AgentUsage? { AgentUsage(tokens: tokens ?? [:]) }
     /// Sidebar / titlebar label without a tab label. Prefer `title(tabLabel:)`.
     public var title: String { title(tabLabel: nil) }
 
