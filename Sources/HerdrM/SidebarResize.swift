@@ -20,11 +20,13 @@ enum SidebarWidth {
 struct SidebarResizeDivider: View {
     @Binding var width: Double
     let collapsed: Bool
+    /// A collapsed sidebar that leaves a rail still needs its edge line.
+    var showsLineWhenCollapsed = false
 
     var body: some View {
         Rectangle()
             .fill(Theme.sidebarBorder)
-            .frame(width: collapsed ? 0 : 1)
+            .frame(width: collapsed && !showsLineWhenCollapsed ? 0 : 1)
             .overlay {
                 if !collapsed {
                     SidebarResizeHandle(width: $width).frame(width: 7)
@@ -95,17 +97,21 @@ final class SidebarResizeHandleView: NSView {
 /// defaults.
 struct SidebarSplit<Sidebar: View, Detail: View>: View {
     let collapsed: Bool
+    /// Width left when collapsed: 0 hides the sidebar, a rail width keeps it.
+    let collapsedWidth: CGFloat
     @AppStorage private var storedWidth: Double
     private let sidebar: (CGFloat) -> Sidebar
     private let detail: () -> Detail
 
     init(
         collapsed: Bool,
+        collapsedWidth: CGFloat = 0,
         store: UserDefaults = .standard,
         @ViewBuilder sidebar: @escaping (CGFloat) -> Sidebar,
         @ViewBuilder detail: @escaping () -> Detail
     ) {
         self.collapsed = collapsed
+        self.collapsedWidth = collapsedWidth
         _storedWidth = AppStorage(wrappedValue: SidebarWidth.defaultWidth, SidebarWidth.storageKey, store: store)
         self.sidebar = sidebar
         self.detail = detail
@@ -117,10 +123,10 @@ struct SidebarSplit<Sidebar: View, Detail: View>: View {
             // Laid out at full width and clipped, so collapsing slides it out
             // instead of squeezing its rows.
             sidebar(width)
-                .frame(width: collapsed ? 0 : width, alignment: .trailing)
+                .frame(width: collapsed ? collapsedWidth : width, alignment: .trailing)
                 .clipped()
             // Above the detail pane: half the grab area lies over the terminal.
-            SidebarResizeDivider(width: $storedWidth, collapsed: collapsed)
+            SidebarResizeDivider(width: $storedWidth, collapsed: collapsed, showsLineWhenCollapsed: collapsedWidth > 0)
                 .ignoresSafeArea()
                 .zIndex(1)
             detail()

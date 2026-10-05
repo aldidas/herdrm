@@ -30,8 +30,12 @@ struct RootView: View {
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
-            SidebarSplit(collapsed: sidebarCollapsed) { width in
-                SidebarView(model: model, collapsed: $sidebarCollapsed, width: width)
+            SidebarSplit(collapsed: sidebarCollapsed, collapsedWidth: SidebarRail.width) { width in
+                if sidebarCollapsed {
+                    SidebarRail(model: model, collapsed: $sidebarCollapsed)
+                } else {
+                    SidebarView(model: model, collapsed: $sidebarCollapsed, width: width)
+                }
             } detail: {
                 DetailView(model: model, sidebarCollapsed: $sidebarCollapsed)
             }
@@ -392,7 +396,8 @@ struct DetailView: View {
     private var titlebar: some View {
         HStack(spacing: 8) {
             if sidebarCollapsed {
-                Spacer().frame(width: TitlebarMetrics.trafficLightClearance - 10)
+                // The rail sits under the traffic lights, so only the rest needs clearing.
+                Spacer().frame(width: TitlebarMetrics.trafficLightClearance - SidebarRail.width)
                 TitlebarIconButton(systemName: "sidebar.left", help: "Show Sidebar (⌘B)") {
                     sidebarCollapsed = false
                 }

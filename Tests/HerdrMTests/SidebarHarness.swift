@@ -124,7 +124,7 @@ final class SidebarHarness {
 
     // MARK: - Fake data
 
-    private static func fakeModel(spaces: Int, agents: Int, terminals: Int, agentTokens: [String: String]?) throws -> AppModel {
+    static func fakeModel(spaces: Int, agents: Int, terminals: Int, agentTokens: [String: String]?) throws -> AppModel {
         let model = AppModel()
         let device = Device.local
         model.devices = [device]
