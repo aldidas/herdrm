@@ -66,10 +66,11 @@ struct SpaceTabBar: View {
         .frame(height: 32)
         .background(selected ? Theme.terminalBackground : Color.clear)
         .contentShape(Rectangle())
-        .onTapGesture(count: 2) {
-            model.tabToRename = tab
-        }
+        // A plain onTapGesture(count: 2) next to the single tap makes macOS hold the
+        // single click for the double-click interval (0.5s) before it fires. The
+        // single tap acts at once; the double tap runs alongside it.
         .onTapGesture { model.selectTab(tab, deviceID: space.deviceID) }
+        .simultaneousGesture(TapGesture(count: 2).onEnded { model.tabToRename = tab })
     }
 
     private func commitRename() {
