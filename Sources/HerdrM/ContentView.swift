@@ -803,7 +803,7 @@ struct DetailView: View {
             // dimming the others, not by a coloured outline.
             if placed {
                 ZStack {
-                    Rectangle().fill(Theme.terminalBackground.opacity(isSelected ? 0 : 0.35))
+                    Rectangle().fill(Theme.terminalBackground.opacity(isSelected ? 0 : 0.6))
                     Rectangle().strokeBorder(Theme.hairline, lineWidth: 1)
                 }
                 .animation(.easeInOut(duration: 0.15), value: isSelected)
