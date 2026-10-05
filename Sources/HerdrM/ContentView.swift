@@ -799,8 +799,15 @@ struct DetailView: View {
         .opacity(isSelected || placed ? 1 : 0)
         .allowsHitTesting(isSelected || placed)
         .overlay {
-            if placed, isSelected {
-                Rectangle().strokeBorder(Theme.working.opacity(0.8), lineWidth: 1).allowsHitTesting(false)
+            // In a split every pane keeps a neutral border; focus shows by
+            // dimming the others, not by a coloured outline.
+            if placed {
+                ZStack {
+                    Rectangle().fill(Theme.terminalBackground.opacity(isSelected ? 0 : 0.35))
+                    Rectangle().strokeBorder(Theme.hairline, lineWidth: 1)
+                }
+                .animation(.easeInOut(duration: 0.15), value: isSelected)
+                .allowsHitTesting(false)
             }
         }
     }
