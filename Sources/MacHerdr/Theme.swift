@@ -89,8 +89,7 @@ struct AgentStatusGlyph: View {
     var body: some View {
         switch status {
         case .working:
-            SpinnerView(color: Theme.working)
-                .frame(width: 12, height: 12)
+            EmptyView()
         case .blocked:
             Image(systemName: "exclamationmark.circle")
                 .font(.system(size: 11, weight: .semibold))

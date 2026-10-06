@@ -39,9 +39,6 @@ struct GrazrAccountsSheet: View {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
                 .disabled(loading)
-                if loading || swapping {
-                    ProgressView().controlSize(.small)
-                }
                 Spacer()
                 if let swapAction {
                     Button("Swap to Next Account") {
@@ -96,7 +93,7 @@ struct GrazrAccountsSheet: View {
                 }
             }
         } else {
-            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            Text("Loading…").foregroundStyle(Theme.textSecondary).frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 

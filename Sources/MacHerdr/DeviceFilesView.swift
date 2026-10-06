@@ -421,9 +421,6 @@ private struct DeviceFilePane: View {
                 .foregroundStyle(Theme.text)
                 .lineLimit(1)
             Spacer()
-            if browser.isLoading {
-                ProgressView().controlSize(.small)
-            }
             Button {
                 Task { await browser.toggleHidden() }
             } label: {

@@ -538,7 +538,7 @@ struct DetailView: View {
     private func statusGlyph(_ status: AgentStatus) -> some View {
         switch status {
         case .working:
-            SpinnerView(color: Theme.working).frame(width: 13, height: 13)
+            EmptyView()
         case .blocked:
             Image(systemName: "exclamationmark.circle")
                 .font(.system(size: 12, weight: .semibold))
@@ -895,7 +895,6 @@ struct DetailView: View {
 
     private var uploadIndicator: some View {
         HStack(spacing: 6) {
-            ProgressView().controlSize(.small)
             Text("Uploading…")
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(Theme.textSecondary)
@@ -1342,13 +1341,6 @@ struct DirectoryPickerField: View {
         .frame(height: 150)
         .background(RoundedRectangle(cornerRadius: 7).fill(Theme.contentBackground))
         .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(Theme.hairline, lineWidth: 1))
-        .overlay(alignment: .topTrailing) {
-            if isListing {
-                ProgressView()
-                    .controlSize(.small)
-                    .padding(6)
-            }
-        }
     }
 
     private var atRoot: Bool {
@@ -1596,7 +1588,6 @@ struct NewAgentSheet: View {
                     switch session.agentCatalog {
                     case .loading:
                         HStack(spacing: 8) {
-                            ProgressView().controlSize(.small)
                             Text(String(localized: "Checking agents on \(chosenDevice.name)…"))
                                 .foregroundStyle(Theme.textSecondary)
                         }
