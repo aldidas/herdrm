@@ -1,10 +1,10 @@
 .DS_Store
 build/
 design/
-HerdrM.xcodeproj/
+MacHerdr.xcodeproj/
 Packages/HerdrKit/.build/
 Packages/HerdrSSH/.build/
-Sources/HerdrM/Info.plist
+Sources/MacHerdr/Info.plist
 *.xcuserstate
 .swiftpm/
 xcuserdata/

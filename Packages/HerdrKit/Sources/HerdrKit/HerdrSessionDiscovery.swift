@@ -5,7 +5,7 @@ import Foundation
 ///
 /// Each named session is a separate server with its own socket at
 /// `~/.config/herdr/sessions/<name>/herdr.sock` (herdr's `data_dir_for`). The
-/// default session lives at `~/.config/herdr/herdr.sock`. herdrm's Local device
+/// default session lives at `~/.config/herdr/herdr.sock`. MacHerdr's Local device
 /// only ever talked to the default socket, so named sessions — where several
 /// agent-orchestration skills isolate their work — were invisible (issue #81).
 /// This surfaces each live named session as an extra Local device.

@@ -3,7 +3,7 @@ import HerdrKit
 import SwiftUI
 
 /// herdr's keybindings, in front of the terminals. In herdr's own TUI the
-/// client reads `prefix+key` chords; HerdrM's terminals attach to a single pane
+/// client reads `prefix+key` chords; MacHerdr's terminals attach to a single pane
 /// and would hand them straight to the process inside, so this monitor reads
 /// `~/.config/herdr/config.toml` `[keys]` and acts on them first. Direct
 /// chords (`ctrl+1..9` for workspaces) work whatever has focus.

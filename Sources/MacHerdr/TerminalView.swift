@@ -161,13 +161,13 @@ enum GhosttyRuntime {
             // Option-as-Meta: matches what the SwiftTerm embed did, and the
             // readline chords below (⌥⌫ → ESC DEL etc.) assume it.
             builder.withCustom("macos-option-as-alt", "true")
-            // HerdrM owns copy only while Ghostty has a local selection. With
+            // MacHerdr owns copy only while Ghostty has a local selection. With
             // no local selection, Command-C must reach a mouse-aware pane app.
             builder.withCustom("keybind", "super+c=unbind")
             // Agent TUI copy actions use OSC 52. Keep writes enabled explicitly
             // rather than depending on Ghostty's default clipboard policy.
             builder.withCustom("clipboard-write", "allow")
-            // Shift is HerdrM's unconditional local-selection escape hatch.
+            // Shift is MacHerdr's unconditional local-selection escape hatch.
             // Plain TUI gestures have Shift removed before reaching Ghostty,
             // so disabling application shift capture cannot affect them.
             builder.withCustom("mouse-shift-capture", "never")
@@ -372,7 +372,7 @@ private enum ClipboardFileError: LocalizedError {
     }
 }
 
-/// The terminal view: Ghostty's `AppTerminalView` plus herdrm's local behavior.
+/// The terminal view: Ghostty's `AppTerminalView` plus MacHerdr's local behavior.
 ///
 /// Keyboard: Shift+Return sends ESC CR so agent TUIs insert a line break instead
 /// of submitting (legacy encoding sends a bare `\r` for both, so the modifier
@@ -1135,7 +1135,7 @@ final class LineBreakTerminalView: AppTerminalView {
             return true
         }
         // Ghostty consumes its default bindings before AppKit reaches the menu.
-        // Give HerdrM's commands priority over those standalone-terminal actions.
+        // Give MacHerdr's commands priority over those standalone-terminal actions.
         if modifiers.contains(.command), NSApp.mainMenu?.performKeyEquivalent(with: event) == true {
             return true
         }

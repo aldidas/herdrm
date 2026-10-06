@@ -1,4 +1,4 @@
-# herdrm — HerdrM
+# MacHerdr (formerly herdrm)
 
 Native macOS console for [herdr](https://herdr.dev) (the terminal workspace manager for
 coding agents). Sidebar lists Spaces (herdr workspaces) and Agents; the bottom-left
@@ -19,11 +19,11 @@ Design canvas (waku-style sidebar, light/dark): `design/` — published as the
   arm64 xcframeworks (`Artifacts/PROVENANCE.md`), ported from Heeler's
   HeelerSSH. `SSHConnection` does `direct-streamlocal` to the remote herdr
   socket (one channel per RPC), PTY exec channels for terminal attach.
-- `Sources/HerdrM` — macOS SwiftUI app (XcodeGen `project.yml`). The terminal is
+- `Sources/MacHerdr` — macOS SwiftUI app (XcodeGen `project.yml`). The terminal is
   libghostty (`GhosttyTerminal` product of Lakr233/libghostty-spm, Metal): each
   pane is a host-managed `InMemoryTerminalSession` fed by `TerminalProcess`, a
   local `forkpty` byte pump. `LineBreakTerminalView` subclasses ghostty's
-  `AppTerminalView` and keeps herdrm's own behavior (light-mode ANSI adapter,
+  `AppTerminalView` and keeps MacHerdr's own behavior (light-mode ANSI adapter,
   ⌘-editing-key readline chords via `session.sendInput`, agent-aware paste).
 - `Sources/HerdrMobile` — iOS/iPadOS SwiftUI app (`HerdrMobile` target, iOS 18,
   iPhone + iPad). Devices are SSH hosts (Ed25519 device key in Keychain or
@@ -36,7 +36,7 @@ Design canvas (waku-style sidebar, light/dark): `design/` — published as the
 ## Build & test
 
 ```sh
-make build      # xcodegen + xcodebuild → build/Build/Products/Debug/HerdrM.app
+make build      # xcodegen + xcodebuild → build/Build/Products/Debug/MacHerdr.app
 make run
 make kit-test   # HerdrKit integration tests (need a running local herdr)
 HERDRM_E2E_SSH_TARGET=vincent@10.10.10.87 make kit-test   # + remote SSH E2E
@@ -70,7 +70,7 @@ auto-bumped after each release.
 - `tab.create` returns the new pane as `result.root_pane.pane_id`.
 - `events.subscribe` takes `{"subscriptions":[{"type":"pane.updated"},…]}`.
   `pane.agent_status_changed` is pane-scoped and must be subscribed with `pane_id`;
-  status transitions do not emit `pane.updated`. HerdrM appends one scoped status
+  status transitions do not emit `pane.updated`. MacHerdr appends one scoped status
   subscription for every known pane and re-subscribes when pane topology changes.
   `pane.scroll_changed` / `pane.output_matched` are scoped too.
 - Terminal attach: agents use `herdr agent attach <pane_id> --takeover`; bare shells use

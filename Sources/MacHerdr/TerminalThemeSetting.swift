@@ -2,7 +2,7 @@ import AppKit
 import Foundation
 import GhosttyTheme
 
-/// The user's chosen Ghostty theme (`terminal.theme`; "" = herdrm's built-in
+/// The user's chosen Ghostty theme (`terminal.theme`; "" = MacHerdr's built-in
 /// palettes). One theme applies in both system appearances, so everything that
 /// used to key on light/dark — the light ANSI adapter, the pane background —
 /// reads the theme's own background instead.

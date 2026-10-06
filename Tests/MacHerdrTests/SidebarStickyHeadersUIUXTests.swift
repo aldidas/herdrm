@@ -1,5 +1,5 @@
 import XCTest
-@testable import herdrm
+@testable import MacHerdr
 
 /// What a user sees in the sidebar's section headers. The sticky mechanics
 /// are tested in the StickySectionHeaders package; this covers the wiring.

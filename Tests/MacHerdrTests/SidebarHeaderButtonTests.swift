@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 import XCTest
-@testable import herdrm
+@testable import MacHerdr
 
 /// The small button at the right end of a sidebar section header, on its own.
 @MainActor

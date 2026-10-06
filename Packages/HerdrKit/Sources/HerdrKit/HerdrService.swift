@@ -88,7 +88,7 @@ public actor HerdrService {
     ///
     /// A server that already answered here and is gone now was stopped deliberately — by
     /// `herdr server stop`, or by the restart in the middle of `herdr update` — and bringing
-    /// it back would both undo the user's decision and let herdrm win the bind race that
+    /// it back would both undo the user's decision and let MacHerdr win the bind race that
     /// `herdr update` needs. The guard is per service instance rather than per process on
     /// purpose: Reconnect and the backoff loop must still be able to start a server for
     /// someone who installed or repaired herdr after opening the app.
@@ -576,7 +576,7 @@ public actor HerdrService {
 
     /// Snaps herdr's server-side viewport for a pane to the bottom.
     ///
-    /// HerdrM renders its own scrollback, so that viewport is invisible here —
+    /// MacHerdr renders its own scrollback, so that viewport is invisible here —
     /// but statusline plugins (herdr-agent-quota, the herdr-claude-tokens
     /// script) skip every metadata update while it is scrolled up, which
     /// silently freezes the sidebar stats lines.

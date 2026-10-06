@@ -1,5 +1,5 @@
 import XCTest
-@testable import herdrm
+@testable import MacHerdr
 
 @MainActor
 final class TerminalLinkTests: XCTestCase {

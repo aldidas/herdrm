@@ -1,5 +1,5 @@
 import XCTest
-@testable import herdrm
+@testable import MacHerdr
 
 final class TerminalCaretGridTests: XCTestCase {
     private let screen = "header\n\n> git ch\nfooter"

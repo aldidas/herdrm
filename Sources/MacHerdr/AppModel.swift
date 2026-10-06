@@ -134,11 +134,11 @@ final class AppModel: ObservableObject {
         }
     }
 
-    /// herdr keeps a server-side viewport per pane that HerdrM never scrolls
+    /// herdr keeps a server-side viewport per pane that MacHerdr never scrolls
     /// (ghostty owns the scrollback here), yet statusline plugins such as
     /// herdr-agent-quota refuse to update a pane while that viewport is
     /// scrolled up — a stale offset silently freezes the sidebar stats lines.
-    /// Showing a pane in HerdrM means the user is at the live bottom, so snap
+    /// Showing a pane in MacHerdr means the user is at the live bottom, so snap
     /// herdr's viewport there too. Best effort: a failure changes nothing.
     private func snapPaneViewportToBottom(_ pane: PaneRef) {
         guard let device = device(pane.deviceID) else { return }

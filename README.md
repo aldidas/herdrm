@@ -169,7 +169,7 @@ unzip, drag `herdrm.app` into `/Applications`. Either way it self-updates from t
 ```mermaid
 flowchart LR
     A(["🖥️ herdr<br/>background server, owns the PTYs"]) -->|"Unix-socket RPC +<br/>herdr agent attach"| B[["Packages/HerdrKit<br/>RPC client · SSH tunnel · device store"]]
-    B -->|SwiftUI bindings| C(["Sources/HerdrM<br/>sidebar · terminal · search · notifications"])
+    B -->|SwiftUI bindings| C(["Sources/MacHerdr<br/>sidebar · terminal · search · notifications"])
     style A fill:#161b22,stroke:#E2795B,color:#e6edf3
     style B fill:#1f2630,stroke:#3B82F6,color:#e6edf3
     style C fill:#161b22,stroke:#2FA35F,color:#e6edf3
@@ -179,14 +179,14 @@ flowchart LR
   over a local Unix socket.
 - **`Packages/HerdrKit`** — transport and domain layer, UI-independent and unit-tested on its
   own (`make kit-test`).
-- **`Sources/HerdrM`** — the SwiftUI shell built on
+- **`Sources/MacHerdr`** — the SwiftUI shell built on
   [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm).
 
 ## 🔨 Build from source
 
 ```sh
 brew install xcodegen
-make build   # xcodegen + xcodebuild → build/Build/Products/Debug/herdrm.app
+make build   # xcodegen + xcodebuild → build/Build/Products/Debug/MacHerdr.app
 make run
 make kit-test  # HerdrKit integration tests (needs a running local herdr)
 ```

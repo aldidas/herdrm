@@ -753,18 +753,18 @@
         }
       }
     },
-    "Finder-launched apps don’t inherit your terminal PATH. herdrm captures it once from a login + interactive shell, then looks up these names. A path here is an escape hatch when detection picks the wrong binary." : {
+    "Finder-launched apps don’t inherit your terminal PATH. MacHerdr captures it once from a login + interactive shell, then looks up these names. A path here is an escape hatch when detection picks the wrong binary." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Finder-launched apps don’t inherit your terminal PATH. herdrm captures it once from a login + interactive shell, then looks up these names. A path here is an escape hatch when detection picks the wrong binary."
+            "value" : "Finder-launched apps don’t inherit your terminal PATH. MacHerdr captures it once from a login + interactive shell, then looks up these names. A path here is an escape hatch when detection picks the wrong binary."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "通过 Finder 启动的应用不会继承终端 PATH。herdrm 会从登录 + 交互式 shell 捕获一次，再按这些名称查找。检测结果不对时，可在此填写路径作为兜底。"
+            "value" : "通过 Finder 启动的应用不会继承终端 PATH。MacHerdr 会从登录 + 交互式 shell 捕获一次，再按这些名称查找。检测结果不对时，可在此填写路径作为兜底。"
           }
         }
       }
@@ -1137,18 +1137,18 @@
         }
       }
     },
-    "Quit and reopen herdrm so the new language takes effect." : {
+    "Quit and reopen MacHerdr so the new language takes effect." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Quit and reopen herdrm so the new language takes effect."
+            "value" : "Quit and reopen MacHerdr so the new language takes effect."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "退出并重新打开 herdrm，新语言才会生效。"
+            "value" : "退出并重新打开 MacHerdr，新语言才会生效。"
           }
         }
       }
@@ -1281,18 +1281,18 @@
         }
       }
     },
-    "herdrm — a native macOS console for herdr." : {
+    "MacHerdr — a native macOS console for herdr." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "herdrm — a native macOS console for herdr."
+            "value" : "MacHerdr — a native macOS console for herdr."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "herdrm — 面向 herdr 的原生 macOS 控制台。"
+            "value" : "MacHerdr — 面向 herdr 的原生 macOS 控制台。"
           }
         }
       }
@@ -2833,18 +2833,18 @@
         }
       }
     },
-    "Runs in this app only; closing herdrm ends the shell." : {
+    "Runs in this app only; closing MacHerdr ends the shell." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Runs in this app only; closing herdrm ends the shell."
+            "value" : "Runs in this app only; closing MacHerdr ends the shell."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "仅在本应用内运行；退出 herdrm 时该 Shell 会结束。"
+            "value" : "仅在本应用内运行；退出 MacHerdr 时该 Shell 会结束。"
           }
         }
       }

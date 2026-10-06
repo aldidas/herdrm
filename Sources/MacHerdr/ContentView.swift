@@ -23,7 +23,7 @@ private struct NewItemSheets: ViewModifier {
 }
 
 struct RootView: View {
-    // Owned by AppDelegate so it outlives the window — see AppDelegate in HerdrMApp.swift.
+    // Owned by AppDelegate so it outlives the window — see AppDelegate in MacHerdrApp.swift.
     @ObservedObject var model: AppModel
     // Deliberately not persisted: the app always launches with the sidebar visible.
     @State private var sidebarCollapsed = false
@@ -1488,7 +1488,7 @@ struct NewTerminalSheet: View {
                 .labelsHidden()
                 .fixedSize()
                 if isStandalone {
-                    Text("Runs in this app only; closing herdrm ends the shell.")
+                    Text("Runs in this app only; closing MacHerdr ends the shell.")
                         .font(.system(size: 11.5))
                         .foregroundStyle(Theme.textTertiary)
                 }

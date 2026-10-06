@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 import XCTest
-@testable import herdrm
+@testable import MacHerdr
 
 /// The sidebar can be made wider or narrower by dragging the line between it
 /// and the terminal, so long Space / Agent names are readable.

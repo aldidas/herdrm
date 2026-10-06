@@ -18,6 +18,9 @@ the Sparkle update description — a release without a section here fails CI.
   draggable dividers and click-to-focus.
 
 ### Changed
+- **Renamed to MacHerdr.** The macOS app, Xcode target/scheme, product (`MacHerdr.app`) and
+  display name are now MacHerdr. The bundle identifier, Application Support folder and
+  Keychain entries are unchanged, so existing devices and saved credentials carry over.
 - Sidebar restyled to the herdr layout: status rings, a muted git branch line (and
   `↑N` when ahead) under each space on local devices, and compact one-line agent
   rows. Agent stats moved to the row tooltip; Files/Search live under the new

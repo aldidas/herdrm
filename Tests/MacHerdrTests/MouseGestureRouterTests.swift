@@ -1,5 +1,5 @@
 import XCTest
-@testable import herdrm
+@testable import MacHerdr
 
 final class MouseGestureRouterTests: XCTestCase {
     private func captured(shift: Bool = false, clickCount: Int = 1, reporting: Bool = true)

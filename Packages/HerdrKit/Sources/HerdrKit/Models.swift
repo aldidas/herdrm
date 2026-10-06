@@ -381,7 +381,7 @@ public enum HerdrError: Error, LocalizedError, Sendable {
         switch self {
         case .socketUnavailable(let path): return "herdr socket not found at \(path)"
         case .connectionFailed(let reason): return "connection failed: \(reason)"
-        case .herdrNotInstalled: return "herdr not found on herdrm's PATH — install it with \"brew install herdr\""
+        case .herdrNotInstalled: return "herdr not found on MacHerdr's PATH — install it with \"brew install herdr\""
         case .remoteHerdrDown(let target, let socketPath):
             return "herdr isn't running on \(target) — nothing listens at \(socketPath); start it by running \"herdr\" on that machine"
         case .rpc(let code, let message): return "herdr error \(code): \(message)"

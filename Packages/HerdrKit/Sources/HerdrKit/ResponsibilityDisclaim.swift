@@ -3,12 +3,12 @@ import Darwin
 import Foundation
 
 /// macOS attributes a child's TCC prompts and Launch Services "responsibility" to
-/// the nearest *responsible* ancestor. For a process herdrm `posix_spawn`s, that
-/// responsible process is herdrm — so the `herdr server` we start on demand, and
+/// the nearest *responsible* ancestor. For a process MacHerdr `posix_spawn`s, that
+/// responsible process is MacHerdr — so the `herdr server` we start on demand, and
 /// every coding agent it goes on to run, answer their permission dialogs *as
-/// herdrm*. That is why users see "herdrm would like to access data from other
-/// apps" while an agent (not herdrm) reads a file (issue #87), and why revoking
-/// that grant would break the agents rather than herdrm.
+/// MacHerdr*. That is why users see "MacHerdr would like to access data from other
+/// apps" while an agent (not MacHerdr) reads a file (issue #87), and why revoking
+/// that grant would break the agents rather than MacHerdr.
 ///
 /// Disclaiming responsibility at spawn makes the child its own responsible
 /// process, so it — and the tree beneath it — prompts as itself. Every terminal
@@ -40,10 +40,10 @@ enum ResponsibilityDisclaim {
 }
 
 /// Spawns a long-lived helper (the on-demand `herdr server`) detached from
-/// herdrm's session and disclaimed of herdrm's TCC responsibility. stdin comes
+/// MacHerdr's session and disclaimed of MacHerdr's TCC responsibility. stdin comes
 /// from `/dev/null`; stdout and stderr are appended to `logPath` (a pipe would
 /// stall the daemon once its buffer filled). The child is never reaped here — it
-/// is meant to outlive us and launchd reparents it when herdrm exits.
+/// is meant to outlive us and launchd reparents it when MacHerdr exits.
 enum DetachedSpawn {
     static func run(
         executable: String,
@@ -63,7 +63,7 @@ enum DetachedSpawn {
         var attr: posix_spawnattr_t?
         guard posix_spawnattr_init(&attr) == 0 else { return nil }
         defer { posix_spawnattr_destroy(&attr) }
-        // SETSID: a daemon that outlives herdrm must not sit in herdrm's session
+        // SETSID: a daemon that outlives MacHerdr must not sit in MacHerdr's session
         // or share a controlling terminal. It already has none, so -i/job control
         // is not a concern here.
         posix_spawnattr_setflags(&attr, Int16(bitPattern: UInt16(POSIX_SPAWN_SETSID)))

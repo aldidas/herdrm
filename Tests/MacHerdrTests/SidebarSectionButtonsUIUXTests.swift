@@ -1,5 +1,5 @@
 import XCTest
-@testable import herdrm
+@testable import MacHerdr
 
 /// Each section header carries a small "new" button at its right end: the
 /// action sits on the header of the list it adds to, pinned or not.

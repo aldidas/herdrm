@@ -2,7 +2,7 @@ import AppKit
 import HerdrKit
 import SwiftUI
 import XCTest
-@testable import herdrm
+@testable import MacHerdr
 
 /// The collapsed sidebar: a narrow rail of numbered status rings.
 @MainActor

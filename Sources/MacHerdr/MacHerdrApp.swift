@@ -51,7 +51,7 @@ extension FocusedValues {
 }
 
 @main
-struct HerdrMApp: App {
+struct MacHerdrApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @AppStorage("app.theme") private var themePreference = "system"
     @FocusedValue(\.appModel) private var focusedModel
@@ -77,7 +77,7 @@ struct HerdrMApp: App {
         .windowStyle(.hiddenTitleBar)
         .windowToolbarStyle(.unified(showsTitle: false))
         .commands {
-            // herdrm is a single-window console: a second window would duplicate the
+            // MacHerdr is a single-window console: a second window would duplicate the
             // whole device tree, so New Window gives up ⌘N to the action that matters.
             CommandGroup(replacing: .newItem) {
                 Button("New Agent") { focusedModel?.showNewAgent = true }
@@ -275,7 +275,7 @@ struct AgentsSettingsView: View {
                         .help(String(localized: "Command or path for \(row.hint). Leave empty to detect."))
                 }
             } footer: {
-                Text("Finder-launched apps don’t inherit your terminal PATH. herdrm captures it once from a login + interactive shell, then looks up these names. A path here is an escape hatch when detection picks the wrong binary.")
+                Text("Finder-launched apps don’t inherit your terminal PATH. MacHerdr captures it once from a login + interactive shell, then looks up these names. A path here is an escape hatch when detection picks the wrong binary.")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
             }
@@ -420,7 +420,7 @@ struct TerminalSettingsView: View {
                         importMessage = nil
                     }
                     Button("Import from Ghostty…") { importFromGhostty() }
-                        .help("Reads font-family, font-size and theme from ~/.config/ghostty/config. A one-time copy — herdrm's settings stay in charge afterward.")
+                        .help("Reads font-family, font-size and theme from ~/.config/ghostty/config. A one-time copy — MacHerdr's settings stay in charge afterward.")
                 }
 
                 if let importMessage {
@@ -450,7 +450,7 @@ struct TerminalSettingsView: View {
 
     /// One-time import of the terminal font from `~/.config/ghostty/config`, so a
     /// Ghostty user isn't jarred by a different face (#73). Only the family and
-    /// size are copied; herdrm's settings own everything from then on.
+    /// size are copied; MacHerdr's settings own everything from then on.
     private func importFromGhostty() {
         guard let config = GhosttyConfigImporter.load() else {
             importSucceeded = false
@@ -467,7 +467,7 @@ struct TerminalSettingsView: View {
             let normalized = family.lowercased().replacingOccurrences(of: " ", with: "")
             if normalized == "sfmono" || normalized == "sfmono-regular" {
                 // macOS doesn't expose SF Mono as a pickable family; it is
-                // herdrm's built-in default (the empty selection).
+                // MacHerdr's built-in default (the empty selection).
                 fontName = ""
                 applied.append("font System Mono (SF Mono)")
             } else if let resolved = TerminalDefaults.resolveFamily(family) {
@@ -544,7 +544,7 @@ struct AppearanceSettingsView: View {
                         Button("Relaunch") {
                             AppLanguage.relaunch()
                         }
-                        .help("Quit and reopen herdrm so the new language takes effect.")
+                        .help("Quit and reopen MacHerdr so the new language takes effect.")
                     }
                 }
             }
@@ -660,7 +660,7 @@ struct TailcatSettingsView: View {
 struct AboutSettingsView: View {
     var body: some View {
         Form {
-            Text("herdrm — a native macOS console for herdr.")
+            Text("MacHerdr — a native macOS console for herdr.")
                 .font(.system(size: 12.5))
             Text("Devices are managed from the switcher in the sidebar footer.")
                 .font(.system(size: 11.5))

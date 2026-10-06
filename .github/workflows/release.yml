@@ -37,7 +37,7 @@ jobs:
           VERSION="${GITHUB_REF_NAME#v}"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           xcodegen generate
-          xcodebuild -project HerdrM.xcodeproj -scheme HerdrM -configuration Release \
+          xcodebuild -project MacHerdr.xcodeproj -scheme MacHerdr -configuration Release \
             -derivedDataPath build build -skipPackagePluginValidation \
             ARCHS="arm64 x86_64" ONLY_ACTIVE_ARCH=NO \
             MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
@@ -46,7 +46,7 @@ jobs:
       - name: Re-sign Sparkle nested components
         run: |
           IDENTITY="Developer ID Application: MOE AI LLC (NCFNX3LJ83)"
-          APP="build/Build/Products/Release/herdrm.app"
+          APP="build/Build/Products/Release/MacHerdr.app"
           FW="$APP/Contents/Frameworks/Sparkle.framework"
           codesign -f --timestamp -o runtime --preserve-metadata=entitlements \
             -s "$IDENTITY" "$FW/Versions/B/XPCServices/Downloader.xpc"
@@ -121,14 +121,14 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
         run: |
-          APP="build/Build/Products/Release/herdrm.app"
+          APP="build/Build/Products/Release/MacHerdr.app"
           ditto -c -k --keepParent "$APP" notarize.zip
           xcrun notarytool submit notarize.zip \
             --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" \
             --password "$APPLE_APP_PASSWORD" --wait
           xcrun stapler staple "$APP"
           rm notarize.zip
-          ditto -c -k --keepParent "$APP" "herdrm-$VERSION.zip"
+          ditto -c -k --keepParent "$APP" "MacHerdr-$VERSION.zip"
 
       - name: Sign update and generate appcast
         env:
@@ -137,16 +137,16 @@ jobs:
           curl -sL -o sparkle.tar.xz "https://github.com/sparkle-project/Sparkle/releases/download/$SPARKLE_VERSION/Sparkle-$SPARKLE_VERSION.tar.xz"
           mkdir -p sparkle && tar -xf sparkle.tar.xz -C sparkle
           printf '%s' "$SPARKLE_PRIVATE_KEY" > "$RUNNER_TEMP/ed_key"
-          SIG_ATTRS=$(./sparkle/bin/sign_update -f "$RUNNER_TEMP/ed_key" "herdrm-$VERSION.zip")
+          SIG_ATTRS=$(./sparkle/bin/sign_update -f "$RUNNER_TEMP/ed_key" "MacHerdr-$VERSION.zip")
           rm "$RUNNER_TEMP/ed_key"
           PUBDATE=$(LC_ALL=en_US.UTF-8 date -u "+%a, %d %b %Y %H:%M:%S +0000")
           cat > appcast.xml <<EOF
           <?xml version="1.0" encoding="utf-8"?>
           <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
             <channel>
-              <title>herdrm</title>
+              <title>MacHerdr</title>
               <item>
-                <title>herdrm $VERSION</title>
+                <title>MacHerdr $VERSION</title>
                 <pubDate>$PUBDATE</pubDate>
                 <sparkle:version>$GITHUB_RUN_NUMBER</sparkle:version>
                 <sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>
@@ -156,7 +156,7 @@ jobs:
           $(cat notes.html)
                 ]]></description>
                 <enclosure
-                  url="https://github.com/${{ github.repository }}/releases/download/v$VERSION/herdrm-$VERSION.zip"
+                  url="https://github.com/${{ github.repository }}/releases/download/v$VERSION/MacHerdr-$VERSION.zip"
                   $SIG_ATTRS
                   type="application/octet-stream"/>
               </item>
@@ -169,15 +169,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" \
-            "herdrm-$VERSION.zip" appcast.xml \
-            --title "herdrm $VERSION" --notes-file notes.md
+            "MacHerdr-$VERSION.zip" appcast.xml \
+            --title "MacHerdr $VERSION" --notes-file notes.md
 
       - name: Bump Homebrew cask
         env:
           TAP_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
         run: |
           [ -n "$TAP_TOKEN" ] || { echo "TAP_GITHUB_TOKEN not set, skipping"; exit 0; }
-          SHA=$(shasum -a 256 "herdrm-$VERSION.zip" | cut -d' ' -f1)
+          SHA=$(shasum -a 256 "MacHerdr-$VERSION.zip" | cut -d' ' -f1)
           git clone --depth 1 "https://x-access-token:$TAP_TOKEN@github.com/OwO-Network/homebrew-brew" tap
           cd tap
           sed -i '' -E "s|^  version \".*\"|  version \"$VERSION\"|" Casks/herdrm.rb

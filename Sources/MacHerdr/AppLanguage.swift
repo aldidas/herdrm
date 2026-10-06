@@ -15,7 +15,7 @@ enum AppLanguage: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
-    /// Localizations herdrm ships. Used to resolve a picker value (including
+    /// Localizations MacHerdr ships. Used to resolve a picker value (including
     /// Follow System) to the code `Bundle.main` would actually load.
     static let bundledLocalizations = ["en", "zh-Hans"]
 
@@ -103,7 +103,7 @@ enum AppLanguage: String, CaseIterable, Identifiable {
 
     /// Flush `AppleLanguages`, then quit through the usual terminate path so SSH
     /// tunnels tear down. A detached helper waits for this pid to vanish and
-    /// reopens the bundle — two live herdrm processes would duplicate the device tree.
+    /// reopens the bundle — two live MacHerdr processes would duplicate the device tree.
     @MainActor
     static func relaunch() {
         UserDefaults.standard.synchronize()
@@ -147,7 +147,7 @@ enum AppLanguage: String, CaseIterable, Identifiable {
                 var attr: posix_spawnattr_t?
                 guard posix_spawnattr_init(&attr) == 0 else { return nil }
                 defer { posix_spawnattr_destroy(&attr) }
-                // New session so the waiter is not SIGHUP'd when herdrm exits.
+                // New session so the waiter is not SIGHUP'd when MacHerdr exits.
                 posix_spawnattr_setflags(&attr, Int16(bitPattern: UInt16(POSIX_SPAWN_SETSID)))
 
                 var pid: pid_t = 0

@@ -4,7 +4,7 @@ import Foundation
 
 /// Login + interactive shell environment for a Finder-launched GUI process.
 ///
-/// LaunchServices gives herdrm `/usr/bin:/bin:/usr/sbin:/sbin`. The PATH that actually
+/// LaunchServices gives MacHerdr `/usr/bin:/bin:/usr/sbin:/sbin`. The PATH that actually
 /// has `codex`, `claude`, `node`, and fnm/nvm/mise shims lives in the user's shell
 /// startup files, which the desktop never executes. This type asks a real shell to
 /// run those files as code (not by grepping `export PATH=`), snapshots the exported
@@ -426,10 +426,10 @@ private enum TimedProcess {
         ))
         posix_spawnattr_setflags(&attr, flags)
 
-        // Disclaim herdrm's TCC responsibility for this probe: it runs the user's
+        // Disclaim MacHerdr's TCC responsibility for this probe: it runs the user's
         // `.zshrc` / `.zprofile`, which routinely touch other apps' data (version
         // managers, history sync, plugin managers), and those accesses should not
-        // prompt as herdrm. See `ResponsibilityDisclaim` (issue #87).
+        // prompt as MacHerdr. See `ResponsibilityDisclaim` (issue #87).
         ResponsibilityDisclaim.apply(to: &attr)
 
         var empty = sigset_t()

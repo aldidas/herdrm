@@ -1,15 +1,15 @@
 import XCTest
-@testable import herdrm
+@testable import MacHerdr
 
 final class AppLanguageTests: XCTestCase {
     func testRelaunchHelperWaitsForThisPidThenOpensTheQuotedBundle() {
         let command = AppLanguage.relaunchHelperCommand(
             pid: 42,
-            bundlePath: "/Applications/O'Brien/herdrm.app"
+            bundlePath: "/Applications/O'Brien/MacHerdr.app"
         )
         XCTAssertEqual(
             command,
-            "while /bin/kill -0 42 2>/dev/null; do /bin/sleep 0.1; done; exec /usr/bin/open '/Applications/O'\\''Brien/herdrm.app'"
+            "while /bin/kill -0 42 2>/dev/null; do /bin/sleep 0.1; done; exec /usr/bin/open '/Applications/O'\\''Brien/MacHerdr.app'"
         )
     }
 

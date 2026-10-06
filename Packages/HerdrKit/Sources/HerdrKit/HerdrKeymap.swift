@@ -21,7 +21,7 @@ public struct KeyChord: Hashable, Sendable {
     var hasModifier: Bool { ctrl || alt || cmd }
 }
 
-/// The herdr actions HerdrM can perform. Others herdr defines (copy mode,
+/// The herdr actions MacHerdr can perform. Others herdr defines (copy mode,
 /// resize mode, detach, …) have no native equivalent and are not mapped.
 public enum HerdrAction: String, CaseIterable, Sendable {
     case switchTab = "switch_tab"
@@ -70,7 +70,7 @@ public struct HerdrKeymap: Equatable, Sendable {
     public var prefix: KeyChord
     public var bindings: [HerdrAction: [KeyBinding]]
 
-    /// herdr 0.9.3's documented defaults for the actions HerdrM supports.
+    /// herdr 0.9.3's documented defaults for the actions MacHerdr supports.
     public static let defaults: HerdrKeymap = {
         let table: [(HerdrAction, [String])] = [
             (.switchTab, ["prefix+1..9"]), (.nextTab, ["prefix+n"]), (.previousTab, ["prefix+p"]),

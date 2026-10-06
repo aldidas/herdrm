@@ -1,15 +1,15 @@
 #if os(macOS)
 import Foundation
 
-/// The slice of a Ghostty configuration herdrm can adopt: the terminal font.
+/// The slice of a Ghostty configuration MacHerdr can adopt: the terminal font.
 ///
-/// herdrm's terminal is libghostty but its settings are its own, so this is a
+/// MacHerdr's terminal is libghostty but its settings are its own, so this is a
 /// one-time *import* (a button in Settings), not a live bind to Ghostty's file —
-/// herdrm's own settings stay the source of truth afterward. See issue #73.
+/// MacHerdr's own settings stay the source of truth afterward. See issue #73.
 public struct GhosttyConfig: Sendable, Equatable {
     /// The primary `font-family`. Ghostty repeats the key to build a fallback
     /// chain; the first entry is the face the user actually sees, so that is the
-    /// one herdrm adopts.
+    /// one MacHerdr adopts.
     public var fontFamily: String?
     /// `font-size`, in points.
     public var fontSize: Double?
@@ -25,7 +25,7 @@ public struct GhosttyConfig: Sendable, Equatable {
     public var isEmpty: Bool { fontFamily == nil && fontSize == nil && theme == nil }
 
     /// The theme name to adopt. A `light:X,dark:Y` pair collapses to one side
-    /// (herdrm applies a single theme in both appearances).
+    /// (MacHerdr applies a single theme in both appearances).
     public func themeName(preferDark: Bool) -> String? {
         guard let theme else { return nil }
         var light: String?
@@ -47,7 +47,7 @@ public enum GhosttyConfigImporter {
     /// Ghostty's config location on macOS, honoring `XDG_CONFIG_HOME`. The App
     /// Support copy (`~/Library/Application Support/com.mitchellh.ghostty/config`)
     /// is deliberately *not* read: it is another app's data directory, so reading
-    /// it would raise the very "access data from other apps" prompt herdrm just
+    /// it would raise the very "access data from other apps" prompt MacHerdr just
     /// stopped triggering (#87). `~/.config/ghostty/config` is the path virtually
     /// everyone uses and is not TCC-protected.
     public static func configURL(

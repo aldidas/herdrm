@@ -1,6 +1,6 @@
 import Foundation
 import XCTest
-@testable import herdrm
+@testable import MacHerdr
 
 /// Agent rows grow to show the plugin stats lines (grazr account, model,
 /// context, usage) when the pane carries those tokens, and stay at their

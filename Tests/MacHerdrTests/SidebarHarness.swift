@@ -2,7 +2,7 @@ import AppKit
 import HerdrKit
 import SwiftUI
 import XCTest
-@testable import herdrm
+@testable import MacHerdr
 
 /// Hosts the real `SidebarView` with fake data and answers questions about
 /// what a user would see: which header is pinned, how tall the list is, and
