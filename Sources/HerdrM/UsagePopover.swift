@@ -49,7 +49,7 @@ private struct UsageBar: View {
     }
 
     private var accessibilityText: String {
-        var text = "\(window.title) \(Int(window.percent.rounded()))%"
+        var text = "\(window.title) \(Int(window.percent.rounded()))% used"
         if let reset = window.resetsIn { text += ", resets in \(reset)" }
         return text
     }
@@ -61,7 +61,7 @@ private struct UsageBar: View {
                     .font(.system(size: 12))
                     .foregroundStyle(Theme.text)
                 Spacer()
-                Text("\(Int(window.percent.rounded()))%")
+                Text("\(Int(window.percent.rounded()))% used")
                     .font(.system(size: 12, design: .monospaced))
                     .foregroundStyle(Theme.textSecondary)
             }

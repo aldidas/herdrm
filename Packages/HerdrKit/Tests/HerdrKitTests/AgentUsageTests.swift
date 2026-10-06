@@ -45,4 +45,40 @@ final class AgentUsageTests: XCTestCase {
         let usage = try XCTUnwrap(AgentUsage(tokens: ["claude_usage": "5h 140%"]))
         XCTAssertEqual(usage.windows, [UsageWindow(label: "5h", percent: 100, resetsIn: nil)])
     }
+
+    /// Real tokens from herdr-agent-usage, which prints quota *remaining*.
+    func testHerdrAgentUsageTokensAreConvertedFromRemainingToUsed() throws {
+        let usage = try XCTUnwrap(AgentUsage(tokens: [
+            "quota_5h_normal": "5h  \u{25b0}\u{25b0}\u{25b0}\u{25b0}\u{25b0}\u{25b1}  97% 4h47m",
+            "quota_week_warning": "7d  \u{25b0}\u{25b1}\u{25b1}\u{25b1}\u{25b1}\u{25b1}  24% 23h27m",
+            "quota_context_normal": "cx  \u{25b0}\u{25b0}\u{25b0}\u{25b0}\u{25b0}\u{25b1}  90%",
+            "quota_headroom": "024",
+            "quota_provider_model": "Claude/Sonnet 5.5",
+        ]))
+        XCTAssertEqual(usage.windows, [
+            UsageWindow(label: "5h", percent: 3, resetsIn: "4h47m"),
+            UsageWindow(label: "7d", percent: 76, resetsIn: "23h27m"),
+        ])
+        XCTAssertEqual(usage.context, UsageWindow(label: "context", percent: 10))
+        XCTAssertEqual(usage.model, "Claude/Sonnet 5.5")
+    }
+
+    func testDevinsDailyWindowSitsUnderTheFiveHourKey() throws {
+        let usage = try XCTUnwrap(AgentUsage(tokens: [
+            "quota_5h_normal": "1d  \u{25b0}\u{25b0}\u{25b0}\u{25b0}\u{25b0}\u{25b1}  94% 7h27m",
+            "quota_week_normal": "7d  \u{25b0}\u{25b0}\u{25b0}\u{25b0}\u{25b0}\u{25b1}  97% 5d7h",
+            "quota_headroom": "094",
+        ]))
+        XCTAssertEqual(usage.windows.map(\.title), ["Daily", "7 days"])
+        XCTAssertEqual(usage.windows.map(\.percent), [6, 3])
+    }
+
+    func testPluginPrintingUsedIsLeftAlone() throws {
+        let usage = try XCTUnwrap(AgentUsage(tokens: [
+            "quota_5h_normal": "5h  \u{25b0}\u{25b1}\u{25b1}\u{25b1}\u{25b1}\u{25b1}  3% 4h47m",
+            "quota_week_warning": "7d  \u{25b0}\u{25b0}\u{25b0}\u{25b0}\u{25b1}\u{25b1}  76% 23h27m",
+            "quota_headroom": "024",
+        ]))
+        XCTAssertEqual(usage.windows.map(\.percent), [3, 76])
+    }
 }
