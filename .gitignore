@@ -3,7 +3,6 @@ build/
 design/
 MacHerdr.xcodeproj/
 Packages/HerdrKit/.build/
-Packages/HerdrSSH/.build/
 Sources/MacHerdr/Info.plist
 *.xcuserstate
 .swiftpm/

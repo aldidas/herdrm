@@ -38,7 +38,7 @@ user explicitly asks afterwards. Remote git work goes to the fork `origin` (aldi
    - Even if textually clean, look at overlapping files for *semantic* clashes (renamed/removed
      APIs my code calls, changed behavior in areas I restyled: sidebar, split layout, key router,
      titlebar, Sparkle removal in `MacHerdrApp.swift`/`project.yml`, themes).
-   - Dependency bumps (`project.yml`, `Package.resolved`, HerdrKit/HerdrSSH) deserve a mention.
+   - Dependency bumps (`project.yml`, `Package.resolved`, HerdrKit) deserve a mention.
 
 5. **Verify that my branch survives the merge.** Required whenever upstream touched anything
    other than docs/CI/changelog, even if the merge was textually clean or conflicted (resolve

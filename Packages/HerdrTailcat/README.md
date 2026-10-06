@@ -21,8 +21,7 @@ or CI builds.
   into the `Tailcatmobile*` Swift symbols. `clientKey` is the app's persistent
   "privkey:" identity, so a host's allow list can admit it.
 - `Sources/HerdrTailcat` — the `TailcatBridge` actor over those symbols.
-- `Artifacts/Tailcat.xcframework` — gomobile output: `ios-arm64`,
-  `ios-arm64_x86_64-simulator`, `macos-arm64_x86_64`. gomobile emits a **static**
+- `Artifacts/Tailcat.xcframework` — gomobile output: `macos-arm64_x86_64`. gomobile emits a **static**
   archive per framework, so Xcode links the Go code into the app binary; the
   copied `Tailcat.framework` in the bundle is a codeless stub and is not a
   runtime dependency.
@@ -36,7 +35,7 @@ go install golang.org/x/mobile/cmd/gomobile@latest && gomobile init
 sh Scripts/build-xcframework.sh
 ```
 
-The script runs `gomobile bind -target=ios,iossimulator,macos -trimpath
+The script runs `gomobile bind -target=macos -trimpath
 -ldflags="-s -w"` from `go/`, which roughly halves the framework size by
 stripping Go's symbol and debug tables. The exported `Tailcatmobile*` symbols
 survive stripping (they are cgo exports, kept for linking).

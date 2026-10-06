@@ -3,8 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "HerdrKit",
-    // iOS 18 to match HerdrTailcat's embedded tailcat xcframework (and HerdrSSH).
-    platforms: [.macOS(.v14), .iOS(.v18)],
+    platforms: [.macOS(.v14)],
     products: [
         .library(name: "HerdrKit", targets: ["HerdrKit"])
     ],
@@ -21,7 +20,6 @@ let package = Package(
         ),
         .testTarget(name: "HerdrKitTests", dependencies: ["HerdrKit"])
     ],
-    // Keep Swift 5 semantics; the bump to tools 6.0 is only for the iOS 18
-    // platform literal, not a move to the Swift 6 language mode.
+    // Keep Swift 5 semantics; tools 6.0 is not a move to the Swift 6 language mode.
     swiftLanguageModes: [.v5]
 )

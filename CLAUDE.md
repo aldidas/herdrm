@@ -15,22 +15,12 @@ Design canvas (waku-style sidebar, light/dark): `design/` — published as the
   `~/Library/Application Support/HerdrM/devices.json`). macOS-only files are
   `#if os(macOS)`-gated: `SSHTunnel` (OpenSSH forward), `HerdrService` facade,
   `ShellEnvironment`, `LocalServer`, `DeviceFileService`, `SSHCredentialStore`.
-- `Packages/HerdrSSH` — SPM library (iOS 18+): libssh2 + OpenSSL as prebuilt
-  arm64 xcframeworks (`Artifacts/PROVENANCE.md`), ported from Heeler's
-  HeelerSSH. `SSHConnection` does `direct-streamlocal` to the remote herdr
-  socket (one channel per RPC), PTY exec channels for terminal attach.
 - `Sources/MacHerdr` — macOS SwiftUI app (XcodeGen `project.yml`). The terminal is
   libghostty (`GhosttyTerminal` product of Lakr233/libghostty-spm, Metal): each
   pane is a host-managed `InMemoryTerminalSession` fed by `TerminalProcess`, a
   local `forkpty` byte pump. `LineBreakTerminalView` subclasses ghostty's
   `AppTerminalView` and keeps MacHerdr's own behavior (light-mode ANSI adapter,
   ⌘-editing-key readline chords via `session.sendInput`, agent-aware paste).
-- `Sources/HerdrMobile` — iOS/iPadOS SwiftUI app (`HerdrMobile` target, iOS 18,
-  iPhone + iPad). Devices are SSH hosts (Ed25519 device key in Keychain or
-  password; TOFU host keys); RPC over `HerdrSSH`; terminal is the same libghostty
-  `InMemoryTerminalSession`, fed by the SSH PTY channel, display-first behind an
-  APC bootstrap marker + native composer (`agent.prompt`) + key bar
-  (`pane.send_input` keys). No relay yet — a second `MobileTransport` later.
 - `design/` — design canvas working files (`*.dc.html` artboards + `canvas.json`).
 
 ## Build & test
@@ -40,8 +30,6 @@ make build      # xcodegen + xcodebuild → build/Build/Products/Debug/MacHerdr.
 make run
 make kit-test   # HerdrKit integration tests (need a running local herdr)
 HERDRM_E2E_SSH_TARGET=vincent@10.10.10.87 make kit-test   # + remote SSH E2E
-make mobile-build  # HerdrMobile + HerdrSSH compile (arm64 Simulator)
-make ssh-test      # HerdrSSH Swift Testing on iOS Simulator
 ```
 
 xcodebuild needs `-skipPackagePluginValidation`; the Makefile passes it. Building

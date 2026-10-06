@@ -5,7 +5,7 @@
 # package) into a per-platform framework and generates the Swift bindings.
 # The checked-in xcframework is the normal build input; rerun this only when
 # the Go sources or the tailcat dependency change — a dependency-maintenance
-# operation, like HerdrSSH's build-native.sh, not part of app or CI builds.
+# operation, not part of app or CI builds.
 #
 # Requires: go, and gomobile+gobind on PATH (go install
 # golang.org/x/mobile/cmd/gomobile@latest && gomobile init). Run from anywhere;
@@ -34,7 +34,7 @@ command -v gomobile >/dev/null 2>&1 || {
 cd "$GO_DIR"
 rm -rf "$OUT"
 CGO_ENABLED=1 gomobile bind \
-  -target=ios,iossimulator,macos \
+  -target=macos \
   -trimpath \
   -ldflags="-s -w" \
   -o "$OUT" \
