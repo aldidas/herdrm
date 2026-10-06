@@ -146,41 +146,9 @@ struct AgentRowDragHost: View {
     }
 }
 
-struct TerminalRowDragHost: View {
-    let entryID: String
-    let onClick: () -> Void
-    let onRename: () -> Void
-    let onClose: () -> Void
-    let onDragStart: (String) -> Void
-    let onDragEnd: () -> Void
-    let onDropHover: (Bool) -> Void
-    let onHoverExit: () -> Void
-    let onDrop: (String, Bool) -> Void
-
-    var body: some View {
-        SidebarRowDragHost(
-            entryID: entryID,
-            pasteboardType: SidebarRowDragNSView.terminalPasteboardType,
-            menuItems: [
-                .item(title: String(localized: "Rename Terminal…"), action: onRename),
-                .separator,
-                .destructive(title: String(localized: "Close Terminal…"), action: onClose),
-            ],
-            onClick: onClick,
-            onDoubleClick: onRename,
-            onDragStart: onDragStart,
-            onDragEnd: onDragEnd,
-            onDropHover: onDropHover,
-            onHoverExit: onHoverExit,
-            onDrop: onDrop
-        )
-    }
-}
-
 final class SidebarRowDragNSView: NSView, NSDraggingSource {
     static let spacePasteboardType = NSPasteboard.PasteboardType("dev.bybee.herdrm.space-id")
     static let agentPasteboardType = NSPasteboard.PasteboardType("dev.bybee.herdrm.agent-id")
-    static let terminalPasteboardType = NSPasteboard.PasteboardType("dev.bybee.herdrm.terminal-id")
 
     var pasteboardType = SidebarRowDragNSView.spacePasteboardType
     var entryID = ""

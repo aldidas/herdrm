@@ -130,12 +130,6 @@ public actor SSHTunnel {
         return dir.appendingPathComponent("\(abs(target.hashValue) % 100_000).sock").path
     }
 
-    /// True when this tunnel serves Windows via `remote-api-bridge` rather than `-L`.
-    public var usesRemoteAPIBridge: Bool {
-        if case .windows = remotePlatform { return true }
-        return false
-    }
-
     // MARK: - Tunnel lifecycle
 
     /// Ensures the forward (or Windows API bridge) is up and returns the local socket path.

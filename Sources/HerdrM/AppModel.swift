@@ -1845,22 +1845,6 @@ final class AppModel: ObservableObject {
         )
     }
 
-    /// Same `tab.move` path as agents. Cross-space / cross-device drops are ignored.
-    func moveTerminal(_ source: TerminalEntry, onto target: TerminalEntry, placeAfter: Bool) {
-        guard source.device.id == target.device.id,
-              source.pane.workspaceID == target.pane.workspaceID,
-              let moving = source.tabID,
-              let onto = target.tabID
-        else { return }
-        moveTab(
-            device: source.device,
-            workspaceID: source.pane.workspaceID,
-            moving: moving,
-            onto: onto,
-            placeAfter: placeAfter
-        )
-    }
-
     private func moveTab(
         device: Device,
         workspaceID: String,

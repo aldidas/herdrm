@@ -5,8 +5,6 @@ import Security
 public enum SSHCredentialStore {
     public static let askPassModeEnvironmentKey = "HERDRM_SSH_ASKPASS"
     public static let authorizationIDEnvironmentKey = "HERDRM_SSH_AUTHORIZATION_ID"
-    public static let persistenceDescription = "Saved in your macOS login Keychain"
-
     private static let passwordService = "dev.bybee.herdrm.ssh-password"
     private static let authorizationService = "dev.bybee.herdrm.ssh-authorization"
 

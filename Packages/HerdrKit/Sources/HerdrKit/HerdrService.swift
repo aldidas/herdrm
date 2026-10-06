@@ -429,19 +429,6 @@ public actor HerdrService {
         )
     }
 
-    /// Places one workspace at `insertIndex` in the device's workspace list
-    /// (`0...count`). Prefer `moveWorkspaceBlock` for sidebar drag: it is how
-    /// the herdr TUI reorders spaces, and it moves a worktree group atomically.
-    public func moveWorkspace(workspaceID: String, insertIndex: UInt) async throws {
-        _ = try await client().request(
-            method: "workspace.move",
-            params: .object([
-                "workspace_id": .string(workspaceID),
-                "insert_index": .number(Double(insertIndex)),
-            ])
-        )
-    }
-
     /// Moves `workspaceIDs` as a block so they sit immediately before
     /// `beforeWorkspaceID`, or at the end of the list when that is nil.
     public func moveWorkspaceBlock(workspaceIDs: [String], beforeWorkspaceID: String?) async throws {
@@ -567,29 +554,6 @@ public actor HerdrService {
             "sh", "bash", "dash", "zsh", "fish", "ksh", "mksh", "csh", "tcsh",
             "elvish", "xonsh", "nu", "pwsh", "powershell", "cmd",
         ].contains(name)
-    }
-
-    /// Reads the pane's visible screen with ANSI intact. Returns nil text when unchanged
-    /// since `ifChangedFrom` (compared via the pane revision).
-    public func readPane(paneID: String) async throws -> (text: String, revision: Int) {
-        let result = try await client().request(
-            method: "pane.read",
-            params: .object([
-                "pane_id": .string(paneID),
-                "source": .string("visible"),
-                "format": .string("ansi"),
-            ])
-        )
-        guard let text = result["read"]?["text"]?.stringValue else {
-            throw HerdrError.malformedResponse("pane.read returned no text")
-        }
-        let revision: Int
-        if case .number(let value)? = result["read"]?["revision"] {
-            revision = Int(value)
-        } else {
-            revision = -1
-        }
-        return (text, revision)
     }
 
     /// Sends literal text (herdr wraps it in bracketed paste when the app enables it —
@@ -896,5 +860,4 @@ public struct TerminalCommand: Sendable {
     public let authorizationID: UUID?
 }
 
-public typealias AttachCommand = TerminalCommand
 #endif  // os(macOS)

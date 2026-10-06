@@ -3,22 +3,6 @@ import HerdrKit
 import SwiftUI
 import StickySectionHeaders
 
-struct VisualEffectView: NSViewRepresentable {
-    var material: NSVisualEffectView.Material = .sidebar
-
-    func makeNSView(context: Context) -> NSVisualEffectView {
-        let view = NSVisualEffectView()
-        view.material = material
-        view.blendingMode = .behindWindow
-        view.state = .active
-        return view
-    }
-
-    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
-        nsView.material = material
-    }
-}
-
 struct SidebarView: View {
     @ObservedObject var model: AppModel
     @Binding var collapsed: Bool
@@ -213,16 +197,6 @@ struct SidebarView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(SidebarRowButtonStyle(selected: selected))
-    }
-
-    private enum AgentStatsStyle {
-        static func color(for kind: AgentStatsLine.Kind) -> Color {
-            switch kind {
-            case .account: return Theme.statsAccount
-            case .model: return Theme.textSecondary
-            case .context, .usage: return Theme.textTertiary
-            }
-        }
     }
 
     private struct AgentRowView: View {

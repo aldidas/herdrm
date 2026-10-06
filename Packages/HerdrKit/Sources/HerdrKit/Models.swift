@@ -211,8 +211,6 @@ public struct PaneInfo: Codable, Sendable, Identifiable, Equatable {
     public let revision: Int?
 
     public var id: String { paneID }
-    public var hasAgent: Bool { agentKindRaw != nil }
-
     enum CodingKeys: String, CodingKey {
         case paneID = "pane_id"
         case terminalID = "terminal_id"

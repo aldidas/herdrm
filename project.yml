@@ -21,9 +21,6 @@ packages:
     # on every bump (supply-chain discipline for a binary dependency). The
     # version scheme is <major.minor>.<UTC yyyymmdd>, so `from:` would drift.
     exactVersion: "1.6.20260909"
-  Sparkle:
-    url: https://github.com/sparkle-project/Sparkle
-    from: "2.9.6"
   StickySectionHeaders:
     # Sidebar section headers (pin + cover + scroll-linked fade). Pinned to a
     # release tag; bump deliberately.
@@ -48,7 +45,6 @@ targets:
         product: GhosttyTerminal
       - package: GhosttyTerminal
         product: GhosttyTheme
-      - package: Sparkle
       - package: StickySectionHeaders
     info:
       path: Sources/HerdrM/Info.plist
@@ -66,9 +62,6 @@ targets:
         CFBundleLocalizations:
           - en
           - zh-Hans
-        SUFeedURL: https://github.com/missuo/herdrm/releases/latest/download/appcast.xml
-        SUPublicEDKey: RHEhllstUuuVrVDCPGrbhg/8LivSzpuZB9X3u3xdV5o=
-        SUEnableAutomaticChecks: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.bybee.herdrm

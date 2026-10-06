@@ -42,17 +42,6 @@ enum BrandIconLoader {
         return loaded
     }
 
-    /// A fixed-size template copy for AppKit menus (menu labels ignore SwiftUI frames).
-    static func menuImage(named name: String, size: CGFloat = 14) -> NSImage? {
-        guard let base = image(named: name) else { return nil }
-        let sized = NSImage(size: NSSize(width: size, height: size), flipped: false) { rect in
-            base.draw(in: rect)
-            return true
-        }
-        sized.isTemplate = true
-        return sized
-    }
-
     /// Maps a herdr agent kind ("claude", "codex", "grok", …) to a bundled icon resource,
     /// preferring the brand-color variant when one is bundled.
     static func agentIcon(for kind: String) -> String? {
