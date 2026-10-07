@@ -1,17 +1,13 @@
 import XCTest
 @testable import MacHerdr
 
-/// Each section header carries a small "new" button at its right end: the
-/// action sits on the header of the list it adds to, pinned or not.
+/// The Agents header carries a small "new" button at its right end, pinned or not.
+/// Spaces has none: New Space is in the sidebar's titlebar menu.
 @MainActor
 final class SidebarSectionButtonsUIUXTests: XCTestCase {
-    func testSpacesHeaderButtonOpensNewSpace() throws {
+    func testSpacesHeaderHasNoButton() throws {
         let sidebar = try SidebarHarness(spaces: 14, agents: 20)
-        sidebar.scroll(.offset(180))
-        XCTAssertEqual(sidebar.pinnedHeader, .spaces)
-
-        try sidebar.clickPinnedHeaderButton()
-        XCTAssertTrue(sidebar.model.showNewSpace)
+        XCTAssertFalse(sidebar.headerButtons(.spaces).contains(String(localized: "New Space")), "New Space lives in the titlebar menu")
     }
 
     func testAgentsHeaderButtonOpensNewAgent() throws {
@@ -41,7 +37,6 @@ final class SidebarSectionButtonsUIUXTests: XCTestCase {
     func testVoiceOverReadsEachHeaderButtonByName() throws {
         let sidebar = try SidebarHarness(spaces: 14, agents: 20, terminals: 20)
 
-        XCTAssertTrue(sidebar.headerButtons(.spaces).contains(String(localized: "New Space")), "\(sidebar.headerButtons(.spaces))")
         XCTAssertTrue(sidebar.headerButtons(.agents).contains(String(localized: "New Agent")), "\(sidebar.headerButtons(.agents))")
         XCTAssertTrue(sidebar.headerButtons(.terminals).contains(String(localized: "New Terminal")), "\(sidebar.headerButtons(.terminals))")
     }

@@ -118,14 +118,8 @@ struct SidebarView: View {
     private var spacesPane: some View {
         VStack(spacing: 1) {
             StickySection(background: { Theme.sidebarBackground }) {
-                // Title + chevron used to be a decorative HStack with no
-                // tap target, so the chevron promised a disclosure that
-                // never fired. Trailing New Space stays a sibling Button
-                // so it does not toggle the section.
                 groupHeader("Spaces", expanded: $spacesExpanded) {
-                    SidebarHeaderButton(systemName: "folder.badge.plus", title: "New Space") {
-                        model.showNewSpace = true
-                    }
+                    EmptyView()
                 }
                 .accessibilityIdentifier("sidebar.section.spaces")
             } content: {
