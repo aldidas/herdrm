@@ -1845,6 +1845,18 @@ final class AppModel: ObservableObject {
         )
     }
 
+    /// Reorders a tab in its space's tab strip (same workspace, same device).
+    func moveTab(_ tabID: String, onto targetID: String, in space: SpaceRef, placeAfter: Bool) {
+        guard let device = device(space.deviceID) else { return }
+        moveTab(
+            device: device,
+            workspaceID: space.workspaceID,
+            moving: tabID,
+            onto: targetID,
+            placeAfter: placeAfter
+        )
+    }
+
     private func moveTab(
         device: Device,
         workspaceID: String,

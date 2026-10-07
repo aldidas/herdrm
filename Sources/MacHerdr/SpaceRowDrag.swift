@@ -20,6 +20,8 @@ struct SidebarRowDragHost: NSViewRepresentable {
     var onDoubleClick: (() -> Void)?
     var onMenuOpen: (() -> Void)?
     var allowsDrag = true
+    /// Tab strip rows lay out left-to-right: "after" means the right half.
+    var horizontal = false
     var onDragStart: ((String) -> Void)?
     var onDragEnd: (() -> Void)?
     var onDropHover: ((Bool) -> Void)?
@@ -32,6 +34,7 @@ struct SidebarRowDragHost: NSViewRepresentable {
         let view = SidebarRowDragNSView(frame: NSRect(x: 0, y: 0, width: 1, height: 1))
         view.pasteboardType = pasteboardType
         view.allowsDrag = allowsDrag
+        view.horizontal = horizontal
         if allowsDrag { view.registerForDraggedTypes([pasteboardType]) }
         return view
     }
@@ -45,6 +48,7 @@ struct SidebarRowDragHost: NSViewRepresentable {
         view.entryID = entryID
         view.menuItems = menuItems
         view.allowsDrag = allowsDrag
+        view.horizontal = horizontal
         view.onClick = onClick
         view.onDoubleClick = onDoubleClick
         view.onMenuOpen = onMenuOpen
@@ -149,11 +153,13 @@ struct AgentRowDragHost: View {
 final class SidebarRowDragNSView: NSView, NSDraggingSource {
     static let spacePasteboardType = NSPasteboard.PasteboardType("dev.bybee.MacHerdr.space-id")
     static let agentPasteboardType = NSPasteboard.PasteboardType("dev.bybee.MacHerdr.agent-id")
+    static let tabPasteboardType = NSPasteboard.PasteboardType("dev.bybee.MacHerdr.tab-id")
 
     var pasteboardType = SidebarRowDragNSView.spacePasteboardType
     var entryID = ""
     var menuItems: [SidebarContextMenuItem] = []
     var allowsDrag = true
+    var horizontal = false
     var onClick: (() -> Void)?
     var onDoubleClick: (() -> Void)?
     var onMenuOpen: (() -> Void)?
@@ -305,7 +311,8 @@ final class SidebarRowDragNSView: NSView, NSDraggingSource {
     }
 
     private func placeAfter(_ sender: NSDraggingInfo) -> Bool {
-        convert(sender.draggingLocation, from: nil).y > bounds.midY
+        let point = convert(sender.draggingLocation, from: nil)
+        return horizontal ? point.x > bounds.midX : point.y > bounds.midY
     }
 
     private func draggedID(from sender: NSDraggingInfo) -> String? {

@@ -6,6 +6,8 @@ struct SpaceTabBar: View {
     @ObservedObject var model: AppModel
     let space: SpaceRef
     @State private var renameText = ""
+    @State private var draggingTabID: String?
+    @State private var tabDrop: (id: String, after: Bool)?
 
     var body: some View {
         let tabs = model.tabs(in: space)
@@ -50,6 +52,46 @@ struct SpaceTabBar: View {
                 .font(.system(size: 12.5, weight: selected ? .medium : .regular))
                 .foregroundStyle(selected ? Theme.text : Theme.textSecondary)
                 .lineLimit(1)
+            // Reserves the close button's slot; the real button sits above the drag host.
+            if canClose { Color.clear.frame(width: 9, height: 9) }
+        }
+        .padding(.horizontal, 12)
+        .frame(height: 32)
+        .background(selected ? Theme.terminalBackground : Color.clear)
+        .opacity(draggingTabID == tab.tabID ? 0.4 : 1)
+        .overlay(alignment: (tabDrop?.after ?? false) ? .trailing : .leading) {
+            if tabDrop?.id == tab.tabID {
+                Rectangle().fill(Theme.accent).frame(width: 2)
+                    .transaction { $0.animation = nil }
+            }
+        }
+        // AppKit host: click selects, double-click renames, a few points of movement
+        // start a drag (SwiftUI gestures and .onDrag fight over mouseDown on macOS).
+        .overlay {
+            SidebarRowDragHost(
+                entryID: tab.tabID,
+                pasteboardType: SidebarRowDragNSView.tabPasteboardType,
+                menuItems: menuItems(for: tab, canClose: canClose),
+                onClick: { model.selectTab(tab, deviceID: space.deviceID) },
+                onDoubleClick: { model.tabToRename = tab },
+                allowsDrag: canClose,
+                horizontal: true,
+                onDragStart: { draggingTabID = $0 },
+                onDragEnd: {
+                    draggingTabID = nil
+                    tabDrop = nil
+                },
+                onDropHover: { after in tabDrop = (tab.tabID, after) },
+                onHoverExit: { if tabDrop?.id == tab.tabID { tabDrop = nil } },
+                onDrop: { sourceID, after in
+                    draggingTabID = nil
+                    tabDrop = nil
+                    guard sourceID != tab.tabID else { return }
+                    model.moveTab(sourceID, onto: tab.tabID, in: space, placeAfter: after)
+                }
+            )
+        }
+        .overlay(alignment: .trailing) {
             if canClose {
                 Button {
                     model.requestCloseTab(tab, deviceID: space.deviceID)
@@ -57,20 +99,27 @@ struct SpaceTabBar: View {
                     Image(systemName: "xmark")
                         .font(.system(size: 9, weight: .semibold))
                         .foregroundStyle(Theme.textGhost)
+                        .frame(width: 20, height: 24)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .padding(.trailing, 7)
                 .help("Close Tab")
             }
         }
-        .padding(.horizontal, 12)
-        .frame(height: 32)
-        .background(selected ? Theme.terminalBackground : Color.clear)
-        .contentShape(Rectangle())
-        // A plain onTapGesture(count: 2) next to the single tap makes macOS hold the
-        // single click for the double-click interval (0.5s) before it fires. The
-        // single tap acts at once; the double tap runs alongside it.
-        .onTapGesture { model.selectTab(tab, deviceID: space.deviceID) }
-        .simultaneousGesture(TapGesture(count: 2).onEnded { model.tabToRename = tab })
+    }
+
+    private func menuItems(for tab: TabInfo, canClose: Bool) -> [SidebarContextMenuItem] {
+        var items: [SidebarContextMenuItem] = [
+            .item(title: String(localized: "Rename Tab…"), action: { model.tabToRename = tab }),
+        ]
+        if canClose {
+            items.append(.separator)
+            items.append(.destructive(title: String(localized: "Close Tab"), action: {
+                model.requestCloseTab(tab, deviceID: space.deviceID)
+            }))
+        }
+        return items
     }
 
     private func commitRename() {
