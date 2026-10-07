@@ -17,10 +17,10 @@ final class SidebarSectionButtonsUIUXTests: XCTestCase {
     func testAgentsHeaderButtonOpensNewAgent() throws {
         let sidebar = try SidebarHarness(spaces: 14, agents: 20)
         let expanded = sidebar.listHeight
-        sidebar.scroll(.bottom)
-        XCTAssertEqual(sidebar.pinnedHeader, .agents)
+        sidebar.scroll(.bottom, in: .agents)
+        XCTAssertEqual(sidebar.pinnedHeader(in: .agents), .agents)
 
-        try sidebar.clickPinnedHeaderButton()
+        try sidebar.clickPinnedHeaderButton(in: .agents)
         XCTAssertTrue(sidebar.model.showNewAgent)
         XCTAssertFalse(sidebar.model.showNewTerminal)
         XCTAssertEqual(sidebar.listHeight, expanded, accuracy: 2, "the button does not collapse the section")

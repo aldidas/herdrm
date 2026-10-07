@@ -16,7 +16,8 @@ final class SidebarHarness {
     let model: AppModel
     private let root: NSHostingView<AnyView>
     private let window: NSWindow
-    private let scroll: NSScrollView
+    private let spacesScroll: NSScrollView
+    private let agentsScroll: NSScrollView
     private var signatures: [Header: [Double]] = [:]
 
     /// - Parameters: number of fake workspaces / agents shown in the sidebar.
@@ -25,6 +26,7 @@ final class SidebarHarness {
     /// - Parameter sheets: attach the app's New Agent / New Terminal / New Space
     ///   sheets, so a button press can be followed to the sheet it opens.
     init(spaces: Int, agents: Int, terminals: Int = 0, agentTokens: [String: String]? = nil, sheets: Bool = false, width: CGFloat = 260, height: CGFloat = 600) throws {
+        UserDefaults.standard.removeObject(forKey: "sidebar.spacesFraction")
         model = try Self.fakeModel(spaces: spaces, agents: agents, terminals: terminals, agentTokens: agentTokens)
         let sidebar = SidebarView(model: model, collapsed: .constant(false), width: width).frame(width: width, height: height)
         root = NSHostingView(rootView: sheets ? AnyView(sidebar.newItemSheets(model: model)) : AnyView(sidebar))
@@ -35,7 +37,10 @@ final class SidebarHarness {
         window.contentView = root
         window.orderFrontRegardless()
         root.layoutSubtreeIfNeeded()
-        scroll = try XCTUnwrap(Self.firstScrollView(in: root), "sidebar scroll view")
+        let scrolls = Self.scrollViews(in: root)
+        XCTAssertEqual(scrolls.count, 2, "spaces + agents panes")
+        spacesScroll = try XCTUnwrap(scrolls.first, "spaces scroll view")
+        agentsScroll = try XCTUnwrap(scrolls.last, "agents scroll view")
         settle()
         try learnHeaderSignatures()
     }
@@ -47,11 +52,12 @@ final class SidebarHarness {
 
     // MARK: - Actions
 
-    func scroll(_ target: ScrollTarget) {
+    func scroll(_ target: ScrollTarget, in header: Header = .spaces) {
+        let scroll = scrollView(header)
         let y: CGFloat
         switch target {
         case .top: y = 0
-        case .bottom: y = maxOffset
+        case .bottom: y = Self.maxOffset(scroll)
         case .offset(let o): y = o
         }
         scroll.contentView.scroll(to: NSPoint(x: 0, y: y))
@@ -60,15 +66,15 @@ final class SidebarHarness {
     }
 
     /// Click the title of whatever header is pinned at the top.
-    func clickPinnedHeader() throws {
-        let r = scroll.contentView.convert(scroll.contentView.bounds, to: nil)
+    func clickPinnedHeader(in header: Header = .spaces) throws {
+        let r = scrollView(header).contentView.convert(scrollView(header).contentView.bounds, to: nil)
         try click(at: NSPoint(x: r.minX + 40, y: r.maxY - 14))
         settle(seconds: 0.6) // disclosure toggle animates for 0.2s
     }
 
     /// Click the small button at the right end of whatever header is pinned.
-    func clickPinnedHeaderButton() throws {
-        let r = scroll.contentView.convert(scroll.contentView.bounds, to: nil)
+    func clickPinnedHeaderButton(in header: Header = .spaces) throws {
+        let r = scrollView(header).contentView.convert(scrollView(header).contentView.bounds, to: nil)
         try click(at: NSPoint(x: r.maxX - 28, y: r.maxY - 14))
         settle(seconds: 0.6)
     }
@@ -102,8 +108,10 @@ final class SidebarHarness {
 
 
     /// The header currently pinned at the top of the list, by its rendered title.
-    var pinnedHeader: Header? {
-        guard let band = try? headerBand() else { return nil }
+    var pinnedHeader: Header? { pinnedHeader(in: .spaces) }
+
+    func pinnedHeader(in header: Header) -> Header? {
+        guard let band = try? headerBand(in: header) else { return nil }
         let scored = signatures.map { ($0.key, Self.changedFraction($0.value, band)) }
         guard let best = scored.min(by: { $0.1 < $1.1 }), best.1 < 0.02 else { return nil }
         return best.0
@@ -117,10 +125,20 @@ final class SidebarHarness {
         try png.write(to: url)
     }
 
-    var scrollOffset: CGFloat { scroll.contentView.bounds.origin.y }
-    var listHeight: CGFloat { scroll.documentView?.bounds.height ?? 0 }
-    var listWidth: CGFloat { scroll.frame.width }
-    var maxOffset: CGFloat { max(listHeight - scroll.contentView.bounds.height, 0) }
+    var scrollOffset: CGFloat { spacesScroll.contentView.bounds.origin.y }
+    /// Combined content height of the Spaces and Agents panes.
+    var listHeight: CGFloat { contentHeight(.spaces) + contentHeight(.agents) }
+    var listWidth: CGFloat { spacesScroll.frame.width }
+    var maxOffset: CGFloat { Self.maxOffset(spacesScroll) }
+    func agentsMaxOffset() -> CGFloat { Self.maxOffset(agentsScroll) }
+    func contentHeight(_ header: Header) -> CGFloat { scrollView(header).documentView?.bounds.height ?? 0 }
+    /// Visible height of a pane (the scroll view's frame).
+    func paneHeight(_ header: Header) -> CGFloat { scrollView(header).frame.height }
+
+    private func scrollView(_ header: Header) -> NSScrollView { header == .spaces ? spacesScroll : agentsScroll }
+    private static func maxOffset(_ s: NSScrollView) -> CGFloat {
+        max((s.documentView?.bounds.height ?? 0) - s.contentView.bounds.height, 0)
+    }
 
     // MARK: - Fake data
 
@@ -154,17 +172,15 @@ final class SidebarHarness {
     /// pinned after scrolling past the previous sections (Agents, Terminals).
     private func learnHeaderSignatures() throws {
         scroll(.top)
-        signatures[.spaces] = try headerBand()
-        scroll(.bottom)
-        let last: Header = model.visibleTerminals.isEmpty && model.shellSessions.isEmpty ? .agents : .terminals
-        signatures[last] = try headerBand()
-        scroll(.top)
-        XCTAssertGreaterThan(Self.changedFraction(signatures[.spaces]!, signatures[last]!), 0.03, "known-yes: titles render differently")
+        signatures[.spaces] = try headerBand(in: .spaces)
+        signatures[.agents] = try headerBand(in: .agents)
+        XCTAssertGreaterThan(Self.changedFraction(signatures[.spaces]!, signatures[.agents]!), 0.03, "known-yes: titles render differently")
     }
 
     /// Luminance over the pinned header's title area (6–22pt below the list
     /// top, 12–90pt from its left edge).
-    private func headerBand() throws -> [Double] {
+    private func headerBand(in header: Header) throws -> [Double] {
+        let scroll = scrollView(header)
         let rep = try XCTUnwrap(root.bitmapImageRepForCachingDisplay(in: root.bounds))
         root.cacheDisplay(in: root.bounds, to: rep)
         let scale = CGFloat(rep.pixelsWide) / root.bounds.width
@@ -207,9 +223,8 @@ final class SidebarHarness {
         }
     }
 
-    private static func firstScrollView(in root: NSView) -> NSScrollView? {
-        if let s = root as? NSScrollView { return s }
-        for child in root.subviews { if let found = firstScrollView(in: child) { return found } }
-        return nil
+    private static func scrollViews(in root: NSView) -> [NSScrollView] {
+        if let s = root as? NSScrollView { return [s] }
+        return root.subviews.flatMap { scrollViews(in: $0) }
     }
 }

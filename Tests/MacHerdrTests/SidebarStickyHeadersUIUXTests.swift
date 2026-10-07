@@ -14,17 +14,18 @@ final class SidebarStickyHeadersUIUXTests: XCTestCase {
         XCTAssertEqual(sidebar.pinnedHeader, .spaces)
     }
 
-    func testAgentsHeaderTakesOverAfterSpacesScrollAway() throws {
+    func testEachPaneKeepsItsOwnHeaderPinned() throws {
         let sidebar = try SidebarHarness(spaces: 14, agents: 20)
+        XCTAssertEqual(sidebar.pinnedHeader(in: .agents), .agents)
 
-        sidebar.scroll(.bottom)
-        XCTAssertEqual(sidebar.pinnedHeader, .agents)
+        sidebar.scroll(.bottom, in: .agents)
+        XCTAssertEqual(sidebar.pinnedHeader(in: .agents), .agents)
+        XCTAssertEqual(sidebar.pinnedHeader(in: .spaces), .spaces, "scrolling Agents leaves Spaces alone")
+    }
 
-        sidebar.scroll(.offset(sidebar.maxOffset - 60))
-        XCTAssertEqual(sidebar.pinnedHeader, .agents)
-
-        sidebar.scroll(.top)
-        XCTAssertEqual(sidebar.pinnedHeader, .spaces)
+    func testDividerStartsAtTheVerticalCentre() throws {
+        let sidebar = try SidebarHarness(spaces: 14, agents: 20)
+        XCTAssertEqual(sidebar.paneHeight(.spaces), sidebar.paneHeight(.agents), accuracy: 6)
     }
 
     func testClickingThePinnedHeaderCollapsesAndExpandsItsSection() throws {

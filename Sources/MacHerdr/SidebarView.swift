@@ -14,6 +14,7 @@ struct SidebarView: View {
     @State private var agentDrop: (id: String, after: Bool)?
     @State private var spacesExpanded = true
     @State private var agentsExpanded = true
+    @AppStorage("sidebar.spacesFraction") private var splitFraction: Double = 0.5
 
     var body: some View {
         VStack(spacing: 0) {
@@ -32,77 +33,149 @@ struct SidebarView: View {
 
             Spacer().frame(height: 4)
 
-            // Section headers pin at the top and hand off with a scroll-linked
-            // fade (StickySectionHeaders). Each section = header + rows + gap.
-            ScrollView {
-                VStack(spacing: 1) {
-                    StickySection(background: { Theme.sidebarBackground }) {
-                        // Title + chevron used to be a decorative HStack with no
-                        // tap target, so the chevron promised a disclosure that
-                        // never fired. Trailing New Space stays a sibling Button
-                        // so it does not toggle the section.
-                        groupHeader("Spaces", expanded: $spacesExpanded) {
-                            SidebarHeaderButton(systemName: "folder.badge.plus", title: "New Space") {
-                                model.showNewSpace = true
-                            }
-                        }
-                        .accessibilityIdentifier("sidebar.section.spaces")
-                    } content: {
-                        if spacesExpanded {
-                            allSpacesRow
-                            ForEach(model.visibleSpaces) { entry in
-                                SpaceRowView(
-                                    entry: entry,
-                                    model: model,
-                                    draggingSpaceID: $draggingSpaceID,
-                                    spaceDrop: $spaceDrop
-                                )
-                            }
-                        }
-                        sectionStrip
-                        Spacer().frame(height: 6)
-                    }
-
-                    StickySection(background: { Theme.sidebarBackground }) {
-                        groupHeader("Agents", expanded: $agentsExpanded) {
-                            Text("priority")
-                                .font(.system(size: 11))
-                                .foregroundStyle(Theme.textGhost)
-                            SidebarHeaderButton(systemName: "square.and.pencil", title: "New Agent") {
-                                model.showNewAgent = true
-                            }
-                        }
-                        .accessibilityIdentifier("sidebar.section.agents")
-                    } content: {
-                        if agentsExpanded {
-                            if model.agentsInScope.isEmpty {
-                                Text(emptyAgentsHint)
-                                    .font(.system(size: 11.5))
-                                    .foregroundStyle(Theme.textGhost)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(8)
-                            }
-                            ForEach(model.agentsInScope) { entry in
-                                AgentRowView(
-                                    entry: entry,
-                                    model: model,
-                                    draggingAgentID: $draggingAgentID,
-                                    agentDrop: $agentDrop
-                                )
-                            }
-                        }
-                    }
-                }
-                .padding(.horizontal, 10)
-                .stickySectionHeaders()
-            }
-            .clipped()
-
+            splitSections
             Spacer(minLength: 0)
             footer
         }
         .frame(width: width)
         .background(Theme.sidebarBackground.ignoresSafeArea())
+    }
+
+    // MARK: - Spaces / Agents split
+
+    /// Minimum height of either pane while it is expanded.
+    private static let minPaneHeight: CGFloat = 96
+    private static let dividerHeight: CGFloat = 9
+    private static let collapsedPaneHeight: CGFloat = 36
+
+    /// Spaces and Agents sit in two independently scrolling panes separated by
+    /// a draggable divider. The split is a fraction of the available height,
+    /// persisted across launches; the default is the vertical centre.
+    private var splitSections: some View {
+        GeometryReader { geo in
+            let total = geo.size.height
+            let bothOpen = spacesExpanded && agentsExpanded
+            let spacesHeight = paneHeight(total: total, bothOpen: bothOpen)
+            VStack(spacing: 0) {
+                pane { spacesPane }
+                    .frame(height: spacesHeight)
+                if bothOpen {
+                    splitDivider(total: total)
+                }
+                pane { agentsPane }
+                    .frame(maxHeight: .infinity)
+            }
+            .coordinateSpace(name: "sidebarSplit")
+        }
+    }
+
+    private func paneHeight(total: CGFloat, bothOpen: Bool) -> CGFloat {
+        if bothOpen {
+            let lo = Self.minPaneHeight
+            let usable = total - Self.dividerHeight
+            let hi = max(lo, usable - Self.minPaneHeight)
+            return min(max(usable * splitFraction, lo), hi)
+        }
+        if !spacesExpanded { return Self.collapsedPaneHeight }
+        // Spaces open, Agents collapsed: Agents shrinks to its header.
+        return max(0, total - Self.collapsedPaneHeight)
+    }
+
+    private func pane<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        ScrollView {
+            content()
+                .padding(.horizontal, 10)
+                .stickySectionHeaders()
+        }
+        .clipped()
+    }
+
+    private func splitDivider(total: CGFloat) -> some View {
+        Rectangle()
+            .fill(Theme.hairline)
+            .frame(height: 1)
+            .frame(maxWidth: .infinity)
+            .frame(height: Self.dividerHeight)
+            .contentShape(Rectangle())
+            .onHover { inside in
+                if inside { NSCursor.resizeUpDown.push() } else { NSCursor.pop() }
+            }
+            .gesture(
+                DragGesture(minimumDistance: 0, coordinateSpace: .named("sidebarSplit"))
+                    .onChanged { value in
+                        let usable = total - Self.dividerHeight
+                        guard usable > 0 else { return }
+                        // The pointer holds the divider's centre.
+                        splitFraction = min(max((value.location.y - Self.dividerHeight / 2) / usable, 0.05), 0.95)
+                    }
+            )
+            .accessibilityIdentifier("sidebar.splitDivider")
+    }
+
+    private var spacesPane: some View {
+        VStack(spacing: 1) {
+            StickySection(background: { Theme.sidebarBackground }) {
+                // Title + chevron used to be a decorative HStack with no
+                // tap target, so the chevron promised a disclosure that
+                // never fired. Trailing New Space stays a sibling Button
+                // so it does not toggle the section.
+                groupHeader("Spaces", expanded: $spacesExpanded) {
+                    SidebarHeaderButton(systemName: "folder.badge.plus", title: "New Space") {
+                        model.showNewSpace = true
+                    }
+                }
+                .accessibilityIdentifier("sidebar.section.spaces")
+            } content: {
+                if spacesExpanded {
+                    allSpacesRow
+                    ForEach(model.visibleSpaces) { entry in
+                        SpaceRowView(
+                            entry: entry,
+                            model: model,
+                            draggingSpaceID: $draggingSpaceID,
+                            spaceDrop: $spaceDrop
+                        )
+                    }
+                }
+                sectionStrip
+                Spacer().frame(height: 6)
+            }
+
+        }
+    }
+
+    private var agentsPane: some View {
+        VStack(spacing: 1) {
+            StickySection(background: { Theme.sidebarBackground }) {
+                groupHeader("Agents", expanded: $agentsExpanded) {
+                    Text("priority")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Theme.textGhost)
+                    SidebarHeaderButton(systemName: "square.and.pencil", title: "New Agent") {
+                        model.showNewAgent = true
+                    }
+                }
+                .accessibilityIdentifier("sidebar.section.agents")
+            } content: {
+                if agentsExpanded {
+                    if model.agentsInScope.isEmpty {
+                        Text(emptyAgentsHint)
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(Theme.textGhost)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(8)
+                    }
+                    ForEach(model.agentsInScope) { entry in
+                        AgentRowView(
+                            entry: entry,
+                            model: model,
+                            draggingAgentID: $draggingAgentID,
+                            agentDrop: $agentDrop
+                        )
+                    }
+                }
+            }
+        }
     }
 
     private var emptyAgentsHint: String {
