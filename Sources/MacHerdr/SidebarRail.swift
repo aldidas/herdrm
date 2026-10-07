@@ -38,6 +38,11 @@ struct SidebarRail: View {
         }
         .frame(width: Self.width)
         .background(Theme.sidebarBackground.ignoresSafeArea())
+        // Continues the detail pane's titlebar separator across the rail.
+        .overlay(alignment: .top) {
+            Rectangle().fill(Theme.hairline).frame(height: 1)
+                .offset(y: TitlebarMetrics.height)
+        }
         .accessibilityIdentifier("sidebar.rail")
     }
 

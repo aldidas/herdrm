@@ -24,8 +24,13 @@ struct SidebarResizeDivider: View {
     var showsLineWhenCollapsed = false
 
     var body: some View {
+        // A collapsed rail's edge line starts under the titlebar separator, so it
+        // does not run behind the traffic lights.
+        let startsBelowTitlebar = collapsed && showsLineWhenCollapsed
         Rectangle()
             .fill(Theme.sidebarBorder)
+            .padding(.top, startsBelowTitlebar ? TitlebarMetrics.height + 1 : 0)
+            .background(Theme.contentBackground)
             .frame(width: collapsed && !showsLineWhenCollapsed ? 0 : 1)
             .overlay {
                 if !collapsed {
