@@ -18,12 +18,15 @@ struct SidebarView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // 28pt titlebar strip: traffic lights on the left, collapse toggle on the right
-            HStack {
-                Spacer()
+            // Titlebar strip: traffic lights, then the collapse toggle, with the
+            // actions menu on the right.
+            HStack(spacing: 0) {
+                Spacer().frame(width: TitlebarMetrics.trafficLightClearance - 10)
                 TitlebarIconButton(systemName: "sidebar.left", help: "Hide Sidebar (⌘B)") {
                     collapsed = true
                 }
+                Spacer()
+                actionsMenu
             }
             .padding(.horizontal, 10)
             .frame(height: TitlebarMetrics.height)
@@ -137,7 +140,6 @@ struct SidebarView: View {
                         )
                     }
                 }
-                sectionStrip
                 Spacer().frame(height: 6)
             }
 
@@ -221,30 +223,26 @@ struct SidebarView: View {
         .frame(height: 28)
     }
 
-    /// `new … menu` strip from the reference layout. Everything the old action
-    /// rows offered stays reachable (also via the app menu shortcuts).
-    private var sectionStrip: some View {
-        HStack {
-            Menu {
-                Button("New Agent") { model.showNewAgent = true }
-                Button("New Terminal") { model.showNewTerminal = true }
-                Button("New Space") { model.showNewSpace = true }
-            } label: {
-                Text("new").font(.system(size: 12)).foregroundStyle(Theme.textTertiary)
+    /// Everything the old `new … menu` strip offered, in one titlebar menu
+    /// (also reachable via the app menu shortcuts).
+    private var actionsMenu: some View {
+        Menu {
+            Menu("New") {
+                Button("Agent") { model.showNewAgent = true }
+                Button("Terminal") { model.showNewTerminal = true }
+                Button("Space") { model.showNewSpace = true }
             }
-            Spacer()
-            Menu {
-                Button("Files") { model.openFileManager() }
-                Button("Search") { model.showSearch = true }
-            } label: {
-                Text("menu").font(.system(size: 12)).foregroundStyle(Theme.textTertiary)
-            }
+            Divider()
+            Button("Files") { model.openFileManager() }
+            Button("Search") { model.showSearch = true }
+        } label: {
+            TitlebarIconLabel(systemName: "ellipsis")
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
-        .padding(.horizontal, 8)
-        .frame(height: 26)
-        .overlay(alignment: .top) { Rectangle().fill(Theme.hairline).frame(height: 1) }
+        .fixedSize()
+        .help("Menu")
+        .accessibilityLabel("Menu")
     }
 
     private var allSpacesRow: some View {
@@ -472,27 +470,35 @@ struct SidebarHeaderButton: View {
 }
 
 /// Small icon button that sits in the 28pt titlebar strip.
+struct TitlebarIconLabel: View {
+    let systemName: String
+    @State private var hovered = false
+
+    var body: some View {
+        Image(systemName: systemName)
+            .font(.system(size: 12))
+            .foregroundStyle(Theme.textTertiary)
+            .frame(width: 24, height: 22)
+            .background(
+                RoundedRectangle(cornerRadius: 5)
+                    .fill(hovered ? AnyShapeStyle(Theme.itemWash) : AnyShapeStyle(.clear))
+            )
+            .contentShape(Rectangle())
+            .onHover { hovered = $0 }
+    }
+}
+
 struct TitlebarIconButton: View {
     let systemName: String
     let help: LocalizedStringKey
     let action: () -> Void
-    @State private var hovered = false
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: systemName)
-                .font(.system(size: 12))
-                .foregroundStyle(Theme.textTertiary)
-                .frame(width: 24, height: 22)
-                .background(
-                    RoundedRectangle(cornerRadius: 5)
-                        .fill(hovered ? AnyShapeStyle(Theme.itemWash) : AnyShapeStyle(.clear))
-                )
-                .contentShape(Rectangle())
+            TitlebarIconLabel(systemName: systemName)
         }
         .buttonStyle(.plain)
         .focusEffectDisabled()
-        .onHover { hovered = $0 }
         .help(help)
     }
 }
