@@ -2,8 +2,8 @@ import HerdrKit
 import SwiftUI
 
 /// What is left of the sidebar when it is collapsed, as in herdr's TUI: a
-/// narrow strip of numbered status rings. Spaces on top, then the agents of
-/// the selected space. Clicking a row selects it without expanding.
+/// narrow strip of numbered status rings. Spaces on top, then every agent in
+/// scope (as the sidebar's Agents section lists them). Clicking a row selects it without expanding.
 struct SidebarRail: View {
     static let width: CGFloat = 36
 
@@ -20,7 +20,7 @@ struct SidebarRail: View {
                     ForEach(Array(model.visibleSpaces.enumerated()), id: \.element.id) { index, entry in
                         spaceRow(index: index, entry: entry)
                     }
-                    let agents = model.visibleAgents
+                    let agents = model.agentsInScope
                     if !agents.isEmpty {
                         Rectangle()
                             .fill(Theme.sidebarBorder)

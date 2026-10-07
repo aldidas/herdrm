@@ -433,6 +433,7 @@ struct DetailView: View {
                 TitlebarIconButton(systemName: "sidebar.left", help: "Show Sidebar (⌘B)") {
                     sidebarCollapsed = false
                 }
+                TitlebarActionsMenu(model: model)
             }
             Group {
                 if model.isFileManagerActive {

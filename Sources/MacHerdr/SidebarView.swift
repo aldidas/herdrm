@@ -26,7 +26,7 @@ struct SidebarView: View {
                     collapsed = true
                 }
                 Spacer()
-                actionsMenu
+                TitlebarActionsMenu(model: model)
             }
             .padding(.horizontal, 10)
             .frame(height: TitlebarMetrics.height)
@@ -219,26 +219,6 @@ struct SidebarView: View {
 
     /// Everything the old `new … menu` strip offered, in one titlebar menu
     /// (also reachable via the app menu shortcuts).
-    private var actionsMenu: some View {
-        Menu {
-            Menu("New") {
-                Button("Agent") { model.showNewAgent = true }
-                Button("Terminal") { model.showNewTerminal = true }
-                Button("Space") { model.showNewSpace = true }
-            }
-            Divider()
-            Button("Files") { model.openFileManager() }
-            Button("Search") { model.showSearch = true }
-        } label: {
-            TitlebarIconLabel(systemName: "ellipsis")
-        }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .fixedSize()
-        .help("Menu")
-        .accessibilityLabel("Menu")
-    }
-
     private var allSpacesRow: some View {
         let selected = model.selectedSpace == nil
         return Button {
@@ -816,6 +796,32 @@ private struct SpaceRowView: View {
         case .none: break
         }
         return parts.joined(separator: ", ")
+    }
+}
+
+/// The titlebar "…" menu; shown in the sidebar header, or beside the toggle
+/// when the sidebar is collapsed.
+struct TitlebarActionsMenu: View {
+    @ObservedObject var model: AppModel
+
+    var body: some View {
+        Menu {
+            Menu("New") {
+                Button("Agent") { model.showNewAgent = true }
+                Button("Terminal") { model.showNewTerminal = true }
+                Button("Space") { model.showNewSpace = true }
+            }
+            Divider()
+            Button("Files") { model.openFileManager() }
+            Button("Search") { model.showSearch = true }
+        } label: {
+            TitlebarIconLabel(systemName: "ellipsis")
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("Menu")
+        .accessibilityLabel("Menu")
     }
 }
 
