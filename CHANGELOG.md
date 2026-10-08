@@ -26,6 +26,14 @@ the Sparkle update description — a release without a section here fails CI.
   rows. Agent stats moved to the row tooltip; Files/Search live under the new
   *menu* strip next to *new*.
 
+### Fixed
+- Picked from upstream herdrm 0.6.12: a remote device no longer fails with "SSH tunnel
+  failed: ssh exited 0" under `ControlMaster auto` (the tunnel opens its own
+  connection); tunnels left behind by a killed app are stopped at launch; `kill`/SIGTERM
+  now quits cleanly; New Agent creates a space when the device has none (closing the
+  last pane of a space warns that herdr closes the space too); herdr is told the
+  terminal draws Kitty graphics so pasted-image thumbnails appear.
+
 ## [0.6.11] - 2026-10-03
 
 ### Added
