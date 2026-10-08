@@ -581,6 +581,7 @@ struct DetailView: View {
     @AppStorage(TerminalThemeSetting.key) private var terminalThemeName = ""
     @AppStorage("terminal.mouseReporting") private var terminalMouseReporting = true
     @AppStorage("terminal.copyOnSelect") private var terminalCopyOnSelect = true
+    @AppStorage("tabs.hideWhenSingle") private var hideSingleTabBar = true
     @Environment(\.colorScheme) private var colorScheme
     /// Per-entry attach state, keyed by `AttachedEntry.id`. `endedAttach` holds the exit
     /// code of a dead attach (nil code = no status, e.g. killed by a signal); a present
@@ -596,7 +597,8 @@ struct DetailView: View {
     private var terminal: some View {
         VStack(spacing: 0) {
             if let space = model.tabBarSpace, model.selectedShellID == nil, !model.isFileManagerActive,
-               !model.tabs(in: space).isEmpty {
+               !model.tabs(in: space).isEmpty,
+               !(hideSingleTabBar && model.tabs(in: space).count == 1) {
                 SpaceTabBar(model: model, space: space)
             }
             terminalStack

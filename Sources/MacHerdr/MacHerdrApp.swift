@@ -515,6 +515,7 @@ struct TerminalSettingsView: View {
 struct AppearanceSettingsView: View {
     @AppStorage("app.theme") private var themePreference = "system"
     @AppStorage(AppLanguage.defaultsKey) private var language = AppLanguage.system.rawValue
+    @AppStorage("tabs.hideWhenSingle") private var hideSingleTabBar = true
 
     var body: some View {
         Form {
@@ -528,6 +529,8 @@ struct AppearanceSettingsView: View {
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+
+            Toggle("Hide the tab bar when only one tab is left", isOn: $hideSingleTabBar)
 
             LabeledContent("Language") {
                 HStack(spacing: 8) {
