@@ -15,6 +15,15 @@ break mine. Judge every verdict by "could this break my branch?", not "does git 
 Never merge into `main` or push anywhere unless the
 user explicitly asks afterwards. Remote git work goes to the fork `origin` (aldidas/herdrm) only.
 
+## Fork goal and policy
+
+The fork's goal is a **simple, minimalist app that keeps herdr's basic TUI layout and
+functionality and is macOS-native**. So upstream is adopted **selectively by cherry-pick**
+(`git cherry-pick -x`), not merged wholesale. Judge each new upstream commit by: does it fix a
+bug on a path I use, or does it add UI/config/features beyond the herdr layout? Take the first
+kind; skip the second unless the user asks. `docs/upstream-triage.md` records what was taken
+and skipped and the last reviewed upstream commit; update it whenever you act on a check.
+
 ## Steps
 
 1. **Ensure the remote.** If `upstream` is missing:
@@ -24,6 +33,8 @@ user explicitly asks afterwards. Remote git work goes to the fork `origin` (aldi
 2. **Find what's new.** Use the real merge base, not a hardcoded commit (it moves after merges):
    - `BASE=$(git merge-base main upstream/main)`
    - `git log --oneline --no-merges $BASE..upstream/main`
+   - Ignore commits already decided in `docs/upstream-triage.md` (review only those after its
+     "last reviewed" hash).
    - If empty: report "up to date" with the upstream HEAD hash/date/latest tag and stop.
 
 3. **Understand the updates.** For each new commit/tag, read the subject, the `CHANGELOG.md`
@@ -67,5 +78,6 @@ user explicitly asks afterwards. Remote git work goes to the fork `origin` (aldi
      - **Conflicts / would break my work** — conflicting files, or a clean merge that fails the
        build/tests or regresses a feature. Say what each side did and propose a resolution that
        keeps my behavior (or recommend skipping that upstream change).
-   - **Next step:** offer the exact action (`git merge upstream/main` on `main`, then push
+   - **Next step:** recommend which commits to cherry-pick and which to skip (with reasons), and offer the exact
+     action (a branch with `git cherry-pick -x …`, build/test, then fast-forward `main` and push
      to `origin`) and wait for the user's go-ahead. Prefer merge over rebase (rebase would force-push the fork).
