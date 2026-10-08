@@ -118,7 +118,7 @@ struct RootView: View {
 /// strip; `TitlebarLayout` stretches the window's titlebar to `height` and
 /// re-centers them, so the sidebar toggle and the title strip share one centerline.
 enum TitlebarMetrics {
-    static let height: CGFloat = 40
+    static let height: CGFloat = 52
     static let trafficLightClearance: CGFloat = 78
 }
 

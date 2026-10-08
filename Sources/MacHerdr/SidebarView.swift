@@ -443,22 +443,41 @@ struct SidebarHeaderButton: View {
     }
 }
 
-/// Small icon button that sits in the 28pt titlebar strip.
+/// Icon button that sits in the titlebar strip. On macOS 26+ it is a Liquid Glass
+/// circle (like the Notes / Mail toolbars); earlier systems keep the flat hover wash.
 struct TitlebarIconLabel: View {
     let systemName: String
+    /// False when the caller applies the glass to an enclosing control (a `Menu`
+    /// ignores glass drawn inside its label).
+    var drawsGlass = true
     @State private var hovered = false
 
     var body: some View {
-        Image(systemName: systemName)
-            .font(.system(size: 12))
-            .foregroundStyle(Theme.textTertiary)
-            .frame(width: 24, height: 22)
-            .background(
-                RoundedRectangle(cornerRadius: 5)
-                    .fill(hovered ? AnyShapeStyle(Theme.itemWash) : AnyShapeStyle(.clear))
-            )
-            .contentShape(Rectangle())
-            .onHover { hovered = $0 }
+        if #available(macOS 26, *) {
+            let icon = Image(systemName: systemName)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(Theme.text)
+                .frame(width: 32, height: 32)
+            if drawsGlass {
+                icon.glassEffect(.regular.interactive(), in: .circle)
+                    .contentShape(Circle())
+            } else {
+                // Plain-style menus only hit-test drawn pixels, so without this
+                // clicks on the empty part of the circle miss the menu.
+                icon.contentShape(Circle())
+            }
+        } else {
+            Image(systemName: systemName)
+                .font(.system(size: 12))
+                .foregroundStyle(Theme.textTertiary)
+                .frame(width: 24, height: 22)
+                .background(
+                    RoundedRectangle(cornerRadius: 5)
+                        .fill(hovered ? AnyShapeStyle(Theme.itemWash) : AnyShapeStyle(.clear))
+                )
+                .contentShape(Rectangle())
+                .onHover { hovered = $0 }
+        }
     }
 }
 
@@ -815,13 +834,26 @@ struct TitlebarActionsMenu: View {
             Button("Files") { model.openFileManager() }
             Button("Search") { model.showSearch = true }
         } label: {
-            TitlebarIconLabel(systemName: "ellipsis")
+            TitlebarIconLabel(systemName: "ellipsis", drawsGlass: false)
         }
-        .menuStyle(.borderlessButton)
+        .menuStyle(.button)
+        .buttonStyle(.plain)
         .menuIndicator(.hidden)
         .fixedSize()
+        .modifier(TitlebarGlassMenu())
         .help("Menu")
         .accessibilityLabel("Menu")
+    }
+}
+
+/// Liquid Glass circle around the whole menu control on macOS 26+.
+private struct TitlebarGlassMenu: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(macOS 26, *) {
+            content.glassEffect(.regular.interactive(), in: .circle)
+        } else {
+            content
+        }
     }
 }
 
