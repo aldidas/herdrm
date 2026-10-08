@@ -11,7 +11,7 @@ up in one sidebar.
 > ([PolyForm Noncommercial 1.0.0](LICENSE.md)); see [License](#license).
 
 <p align="center">
-  <img src=".github/assets/screenshot.png" alt="MacHerdr: sidebar with spaces and agents, the tab bar, and a split terminal layout" />
+  <img src=".github/assets/screenshot.png" alt="MacHerdr: sidebar with spaces and several kinds of agents, the tab bar, and a split terminal layout with an agent and neovim" />
 </p>
 
 ## What it does
