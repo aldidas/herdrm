@@ -10,6 +10,10 @@ up in one sidebar.
 > releases or support, and the goal is to stay small. It keeps the upstream license
 > ([PolyForm Noncommercial 1.0.0](LICENSE.md)); see [License](#license).
 
+<p align="center">
+  <img src=".github/assets/screenshot.png" alt="MacHerdr: sidebar with spaces and agents, the tab bar, and a split terminal layout" />
+</p>
+
 ## What it does
 
 [herdr](https://herdr.dev) is the runtime your coding agents live on: a background server that
