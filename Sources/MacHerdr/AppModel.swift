@@ -204,17 +204,32 @@ final class AppModel: ObservableObject {
 
     private var layoutGate = LatestOnlyGate()
 
-    private func ensureAttached(_ ref: PaneRef) {
-        guard let device = device(ref.deviceID) else { return }
+    /// The entry a pane currently resolves to: an agent while herdr detects one,
+    /// otherwise an ordinary terminal.
+    private func currentAttachedEntry(for ref: PaneRef) -> AttachedEntry? {
+        guard let device = device(ref.deviceID) else { return nil }
         let state = session(ref.deviceID)
-        let entry: AttachedEntry?
         if let agent = state.agents.first(where: { $0.paneID == ref.paneID }) {
-            entry = .agent(agentEntry(device: device, agent: agent))
-        } else {
-            entry = terminalEntries(for: device).first { $0.pane.paneID == ref.paneID }.map { .terminal($0) }
+            return .agent(agentEntry(device: device, agent: agent))
         }
-        if let entry, !attachSessions.contains(where: { $0.id == entry.id }) {
+        return terminalEntries(for: device).first { $0.pane.paneID == ref.paneID }.map { .terminal($0) }
+    }
+
+    private func ensureAttached(_ ref: PaneRef) {
+        if let entry = currentAttachedEntry(for: ref), !attachSessions.contains(where: { $0.id == entry.id }) {
             attachSessions.append(entry)
+        }
+    }
+
+    /// A pane flips between agent and terminal when its agent exits (or one starts in
+    /// a shell). The entry id embeds the kind, so the kept-alive entry goes stale and
+    /// the selection matches no child — a blank pane. Swap each stale entry in place
+    /// for the one the pane resolves to now, so the terminal re-attaches as a prompt.
+    private func reconcileAttachSessions(deviceID: UUID) {
+        for index in attachSessions.indices where attachSessions[index].device.id == deviceID {
+            let stale = attachSessions[index]
+            guard let current = currentAttachedEntry(for: stale.ref), current.id != stale.id else { continue }
+            attachSessions[index] = current
         }
     }
 
@@ -1458,6 +1473,7 @@ final class AppModel: ObservableObject {
             sessions[deviceID]?.panes = snapshot.ordinaryTerminalPanes
             refreshGitStatuses(deviceID: deviceID)
             if selectedPane?.deviceID == deviceID { Task { @MainActor in await refreshActiveLayout() } }
+            reconcileAttachSessions(deviceID: deviceID)
             let paneIDs = Set((snapshot.panes ?? []).map(\.paneID))
                 .union(snapshot.agents.map(\.paneID))
             // Drop kept-alive attaches whose pane is gone (closed). A pane only taken
