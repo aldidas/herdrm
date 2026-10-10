@@ -62,6 +62,5 @@ final class SidebarSectionButtonsUIUXTests: XCTestCase {
 
         try sidebar.clickPinnedHeader()
         XCTAssertFalse(sidebar.model.showNewAgent)
-        XCTAssertFalse(sidebar.model.showNewSpace)
     }
 }

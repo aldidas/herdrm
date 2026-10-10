@@ -828,7 +828,7 @@ struct TitlebarActionsMenu: View {
             Menu("New") {
                 Button("Agent") { model.showNewAgent = true }
                 Button("Terminal") { model.showNewTerminal = true }
-                Button("Space") { model.showNewSpace = true }
+                Button("Space") { model.newSpace() }
             }
             Divider()
             Button("Files") { model.openFileManager() }

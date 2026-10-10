@@ -293,7 +293,6 @@ final class AppModel: ObservableObject {
     @Published var showAddDevice = false
     @Published var showNewAgent = false
     @Published var showNewTerminal = false
-    @Published var showNewSpace = false
     @Published var showSearch = false
     @Published var isFileManagerActive = false
     @Published var shellSplitAxis: SplitAxis?
@@ -900,7 +899,7 @@ final class AppModel: ObservableObject {
             // The ⌘K search sheet lists spaces, agents and terminals across devices.
             showSearch = true
         case .newWorkspace:
-            showNewSpace = true
+            newSpace()
         case .renameWorkspace:
             spaceToRename = visibleSpaces.first { $0.ref == space }
         case .closeWorkspace:
@@ -1980,25 +1979,19 @@ final class AppModel: ObservableObject {
         return result
     }
 
-    /// Creates a workspace rooted at the given directory ("~" expands to the device's
-    /// home, local or remote), then goes straight into the New Agent sheet for it.
-    func createNewSpace(device: Device, directory: String, label: String?) {
+    /// New Space, as in herdr itself: a fresh workspace with a shell, created at
+    /// once on the filtered (else first) device and selected. No sheets; this Mac
+    /// roots it in the home folder, remote hosts let herdr pick.
+    func newSpace() {
+        guard let device = deviceFilter.flatMap(device(_:)) ?? devices.first else { return }
         Task {
             do {
-                let service = service(for: device)
-                var path = directory.trimmingCharacters(in: .whitespaces)
-                // The browser leaves paths slash-terminated; herdr wants them bare.
-                while path.count > 1 && path.hasSuffix("/") { path.removeLast() }
-                if path.isEmpty { path = "~" }
-                path = try await service.absolutePath(path)
-                let trimmedLabel = label?.trimmingCharacters(in: .whitespaces)
-                let created = try await service.createWorkspace(
-                    label: (trimmedLabel?.isEmpty ?? true) ? nil : trimmedLabel,
-                    cwd: path
+                let created = try await service(for: device).createWorkspace(
+                    label: nil,
+                    cwd: device.isLocal ? NSHomeDirectory() : nil
                 )
                 await refresh(device.id)
-                selectedSpace = SpaceRef(deviceID: device.id, workspaceID: created.workspaceID)
-                showNewAgent = true
+                selectSpace(SpaceRef(deviceID: device.id, workspaceID: created.workspaceID))
             } catch {
                 actionError = actionErrorMessage(error, device: device)
             }

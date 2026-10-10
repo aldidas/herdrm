@@ -18,6 +18,8 @@ the Sparkle update description — a release without a section here fails CI.
   draggable dividers and click-to-focus.
 
 ### Changed
+- **New Space is one step**, like herdr: it creates a workspace with a shell at once (home
+  folder on this Mac) instead of opening the directory browser and New Agent sheets.
 - **Renamed to MacHerdr.** The macOS app, Xcode target/scheme, product (`MacHerdr.app`) and
   display name are now MacHerdr. The bundle identifier, Application Support folder and
   Keychain entries are unchanged, so existing devices and saved credentials carry over.

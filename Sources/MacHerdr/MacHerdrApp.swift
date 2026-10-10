@@ -116,7 +116,7 @@ struct MacHerdrApp: App {
                 Button("New Terminal") { focusedModel?.showNewTerminal = true }
                     .keyboardShortcut("t", modifiers: .command)
                     .disabled(focusedModel == nil)
-                Button("New Space") { focusedModel?.showNewSpace = true }
+                Button("New Space") { focusedModel?.newSpace() }
                     .keyboardShortcut("n", modifiers: [.command, .shift])
                     .disabled(focusedModel == nil)
             }
