@@ -7,23 +7,68 @@ struct SearchSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var query = ""
     @State private var highlighted = 0
+    @State private var fileHits: [RepoFileHit] = []
+    @State private var fileRoot = ""
+    @State private var tab: SearchTab
+
+    init(model: AppModel) {
+        self.model = model
+        _tab = State(initialValue: model.fileSearchTarget == nil ? .agents : .files)
+    }
+
+    enum SearchTab: Int, CaseIterable, Identifiable {
+        case files = 1, terminals, agents, spaces
+
+        var id: Int { rawValue }
+
+        var title: LocalizedStringKey {
+            switch self {
+            case .files: return "Files"
+            case .terminals: return "Terminals"
+            case .agents: return "Agents"
+            case .spaces: return "Spaces"
+            }
+        }
+
+        var placeholder: LocalizedStringKey {
+            switch self {
+            case .files: return "Search files…"
+            case .terminals: return "Search terminals…"
+            case .agents: return "Search agents…"
+            case .spaces: return "Search spaces…"
+            }
+        }
+    }
     @FocusState private var fieldFocused: Bool
 
     enum Result: Identifiable {
         case agent(AppModel.AgentEntry)
         case terminal(AppModel.TerminalEntry)
         case space(AppModel.SpaceEntry)
+        case file(RepoFileHit)
+
+        var tab: SearchTab {
+            switch self {
+            case .agent: return .agents
+            case .terminal: return .terminals
+            case .space: return .spaces
+            case .file: return .files
+            }
+        }
 
         var id: String {
             switch self {
             case .agent(let entry): return "agent-\(entry.id)"
             case .terminal(let entry): return "terminal-\(entry.id)"
             case .space(let entry): return "space-\(entry.id)"
+            case .file(let hit): return "file-\(hit.id)"
             }
         }
     }
 
-    private var results: [Result] {
+    private var results: [Result] { allResults.filter { $0.tab == tab } }
+
+    private var allResults: [Result] {
         let q = query.trimmingCharacters(in: .whitespaces).lowercased()
         let agents = model.devices.flatMap { device in
             model.session(device.id).agents.map { model.agentEntry(device: device, agent: $0) }
@@ -65,6 +110,7 @@ struct SearchSheet: View {
             return ($0.agent.revision ?? 0) > ($1.agent.revision ?? 0)
         }
         return ranked.map(Result.agent) + terminals.map(Result.terminal) + spaces.map(Result.space)
+            + fileHits.map(Result.file)
     }
 
     private func searchRank(_ entry: AppModel.AgentEntry) -> Int {
@@ -86,7 +132,7 @@ struct SearchSheet: View {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 13))
                     .foregroundStyle(Theme.textTertiary)
-                TextField("Search agents, terminals, and spaces…", text: $query)
+                TextField(tab.placeholder, text: $query)
                     .textFieldStyle(.plain)
                     .font(.system(size: 14))
                     .focused($fieldFocused)
@@ -106,6 +152,10 @@ struct SearchSheet: View {
             }
             .padding(.horizontal, 14)
             .frame(height: 44)
+
+            Rectangle().fill(Theme.hairline).frame(height: 1)
+
+            tabBar
 
             Rectangle().fill(Theme.hairline).frame(height: 1)
 
@@ -158,9 +208,55 @@ struct SearchSheet: View {
             .padding(.horizontal, 14)
             .frame(height: 28)
         }
-        .frame(width: 440)
+        .frame(width: 480)
         .onAppear { fieldFocused = true }
         .onChange(of: query) { _, _ in highlighted = 0 }
+        .onChange(of: tab) { _, _ in highlighted = 0 }
+        .task(id: query) { await loadFiles() }
+    }
+
+    /// Files for the current space: changed files on an empty query, fuzzy matches
+    /// otherwise. Keystrokes cancel the previous task, so a stale result never lands.
+    private func loadFiles() async {
+        guard let target = model.fileSearchTarget else {
+            fileHits = []
+            return
+        }
+        let found = await model.repoFiles.hits(query: query, directory: target.directory)
+        guard !Task.isCancelled else { return }
+        fileRoot = found?.root ?? ""
+        fileHits = found?.hits ?? []
+    }
+
+    private var tabBar: some View {
+        let counts = Dictionary(grouping: allResults, by: \.tab).mapValues(\.count)
+        return HStack(spacing: 2) {
+            ForEach(SearchTab.allCases) { item in
+                Button { tab = item } label: {
+                    HStack(spacing: 5) {
+                        Text(item.title)
+                            .font(.system(size: 12, weight: item == tab ? .medium : .regular))
+                        if let count = counts[item], count > 0 {
+                            Text("\(count)").font(.system(size: 10.5)).foregroundStyle(Theme.textGhost)
+                        }
+                        Text("⌘\(item.rawValue)").font(.system(size: 10)).foregroundStyle(Theme.textGhost)
+                    }
+                    .foregroundStyle(item == tab ? Theme.text : Theme.textTertiary)
+                    .padding(.horizontal, 8)
+                    .frame(height: 24)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(item == tab ? AnyShapeStyle(Theme.itemWashSelected) : AnyShapeStyle(.clear))
+                    )
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .keyboardShortcut(KeyEquivalent(Character("\(item.rawValue)")), modifiers: .command)
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 8)
+        .frame(height: 32)
     }
 
     private func hint(_ key: String, _ label: LocalizedStringKey) -> some View {
@@ -232,6 +328,31 @@ struct SearchSheet: View {
                     .lineLimit(1)
                 Spacer(minLength: 8)
                 trailing(String(localized: "Space · \(model.agentCount(in: entry)) agents"), device: entry.device)
+            case .file(let hit):
+                Image(systemName: hit.isChanged ? "doc.badge.ellipsis" : "doc")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.textSecondary)
+                    .frame(width: 16)
+                Text((hit.path as NSString).lastPathComponent)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Theme.text)
+                    .lineLimit(1)
+                    .layoutPriority(1)
+                Text((hit.path as NSString).deletingLastPathComponent)
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(Theme.textTertiary)
+                    .lineLimit(1)
+                    .truncationMode(.head)
+                Spacer(minLength: 8)
+                if let added = hit.added, let deleted = hit.deleted {
+                    Text("+\(added) −\(deleted)")
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(Theme.textTertiary)
+                } else if hit.isChanged {
+                    Text("new")
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(Theme.textTertiary)
+                }
             }
         }
         .padding(.horizontal, 10)
@@ -272,6 +393,10 @@ struct SearchSheet: View {
                 model.setDeviceFilter(nil)
             }
             model.selectSpace(entry.ref)
+        case .file(let hit):
+            if let target = model.fileSearchTarget {
+                model.openFile(path: fileRoot + "/" + hit.path, in: target.space, directory: target.directory)
+            }
         }
         dismiss()
     }

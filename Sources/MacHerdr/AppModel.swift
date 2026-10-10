@@ -156,6 +156,7 @@ final class AppModel: ObservableObject {
     /// Branch/ahead per space, local devices only (remote shows none). Keyed by `SpaceEntry.id`.
     @Published private(set) var gitStatuses: [String: GitStatus] = [:]
     private let gitStatusProvider = GitStatusProvider()
+    let repoFiles = RepoFiles()
 
     struct ActiveLayout: Equatable {
         let tabID: String
@@ -857,6 +858,60 @@ final class AppModel: ObservableObject {
                 selectAgent(PaneRef(deviceID: space.deviceID, paneID: paneID))
             } catch {
                 actionError = error.localizedDescription
+            }
+        }
+    }
+
+    // MARK: - File search (⌘K)
+
+    /// Where ⌘K looks for files: the selected pane's cwd, else the space's. Local
+    /// devices only — git runs on this Mac.
+    var fileSearchTarget: (space: SpaceRef, directory: String)? {
+        guard let space = tabBarSpace, device(space.deviceID)?.isLocal == true else { return nil }
+        let state = session(space.deviceID)
+        let selectedCwd = selectedPane.flatMap { ref in
+            state.agents.first { $0.paneID == ref.paneID }?.cwd
+                ?? state.panes.first { $0.paneID == ref.paneID }?.cwd
+        }
+        let candidates: [(workspaceID: String, cwd: String?)] =
+            state.agents.map { ($0.workspaceID, $0.cwd) } + state.panes.map { ($0.workspaceID, $0.cwd) }
+        guard let directory = [selectedCwd, WorkspaceDirectory.resolve(
+            workspaceID: space.workspaceID, candidates: candidates
+        )].compactMap({ $0 }).first(where: { !$0.isEmpty })
+        else { return nil }
+        return (space, directory)
+    }
+
+    /// Opens `path` in nvim: types `:e` into a vi-family pane in the space (the
+    /// current tab's first), else starts `nvim` in a new tab.
+    func openFile(path: String, in space: SpaceRef, directory: String) {
+        guard let device = device(space.deviceID) else { return }
+        let service = service(for: device)
+        let state = session(space.deviceID)
+        let agentPaneIDs = Set(state.agents.map(\.paneID))
+        let activeTab = activeTabID(in: space)
+        let candidates = state.panes
+            .filter { $0.workspaceID == space.workspaceID && !agentPaneIDs.contains($0.paneID) }
+            .sorted { ($0.tabID == activeTab ? 0 : 1) < ($1.tabID == activeTab ? 0 : 1) }
+        Task { @MainActor in
+            do {
+                for pane in candidates {
+                    let names = await service.foregroundProcessNames(paneID: pane.paneID)
+                    guard names.contains(where: HerdrService.isEditorProcessName) else { continue }
+                    try await service.openInEditor(paneID: pane.paneID, path: path)
+                    reveal(PaneRef(deviceID: space.deviceID, paneID: pane.paneID))
+                    try? await service.focusPane(paneID: pane.paneID)
+                    return
+                }
+                let name = (path as NSString).lastPathComponent
+                let paneID = try await service.createTab(
+                    workspaceID: space.workspaceID, cwd: directory, label: name
+                )
+                _ = await refreshImmediately(space.deviceID)
+                reveal(PaneRef(deviceID: space.deviceID, paneID: paneID))
+                try await service.launchEditor(paneID: paneID, path: path)
+            } catch {
+                actionError = actionErrorMessage(error, device: device)
             }
         }
     }

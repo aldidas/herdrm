@@ -8,6 +8,10 @@ the Sparkle update description — a release without a section here fails CI.
 ## [Unreleased]
 
 ### Added
+- **File search in ⌘K.** The palette is now tabbed (Files, Terminals, Agents, Spaces;
+  ⌘1–⌘4). Files lists the repo's changed files with diff stats, and fuzzy-searches
+  tracked files as you type. Choosing one runs `:e` in an nvim/vim pane of the space,
+  or opens a new tab with nvim.
 - **Ghostty themes.** Settings › Terminal has a theme picker backed by the bundled
   Ghostty theme catalog, and *Import from Ghostty…* now also reads `theme` from
   `~/.config/ghostty/config`. The terminal background and the light-theme color

@@ -556,6 +556,53 @@ public actor HerdrService {
         ].contains(name)
     }
 
+    /// Executable names (`name` and `argv[0]` basenames) of the pane's foreground processes.
+    public func foregroundProcessNames(paneID: String) async -> [String] {
+        guard let result = try? await client().request(
+            method: "pane.process_info",
+            params: .object(["pane_id": .string(paneID)])
+        ), let processes = result["process_info"]?["foreground_processes"]?.arrayValue
+        else { return [] }
+        return processes.flatMap { process -> [String] in
+            [process["name"]?.stringValue, process["argv"]?.arrayValue?.first?.stringValue]
+                .compactMap { $0 }
+                .map { $0.split(separator: "/").last.map(String.init) ?? $0 }
+        }
+    }
+
+    /// True for the vi family — the panes ⌘K file search can type `:e` into.
+    public static func isEditorProcessName(_ name: String) -> Bool {
+        ["nvim", "vim", "vi", "view"].contains(name.lowercased())
+    }
+
+    /// Vim's `fnameescape`: backslash-escapes characters special on the `:e` command line.
+    public static func vimEscapedPath(_ path: String) -> String {
+        var result = ""
+        for char in path {
+            if " \t\n\\|\"'%#<>*?[]{}$`;&()!".contains(char) { result.append("\\") }
+            result.append(char)
+        }
+        return result
+    }
+
+    /// Opens `path` in a vi-family editor already running in `paneID`: Esc, `:`,
+    /// the escaped path as pasted text (so it is never read as normal-mode keys),
+    /// then Enter.
+    public func openInEditor(paneID: String, path: String) async throws {
+        try await sendKeys(paneID: paneID, keys: ["esc", ":"])
+        try await sendInput(paneID: paneID, text: "e " + Self.vimEscapedPath(path))
+        try await sendKeys(paneID: paneID, keys: ["enter"])
+    }
+
+    /// Types `nvim -- <path>` into a fresh shell pane (the tab-fallback for
+    /// `openInEditor`). The pty buffers the line until the shell reads it, so no
+    /// prompt detection is needed.
+    public func launchEditor(paneID: String, path: String) async throws {
+        let quoted = "'" + path.replacingOccurrences(of: "'", with: "'\\''") + "'"
+        try await sendInput(paneID: paneID, text: "nvim -- " + quoted)
+        try await sendKeys(paneID: paneID, keys: ["enter"])
+    }
+
     /// Sends literal text (herdr wraps it in bracketed paste when the app enables it —
     /// right for pastes, wrong for keystrokes; use sendKeys for those).
     public func sendInput(paneID: String, text: String) async throws {
