@@ -594,6 +594,7 @@ struct DetailView: View {
     @AppStorage("terminal.mouseReporting") private var terminalMouseReporting = true
     @AppStorage("terminal.copyOnSelect") private var terminalCopyOnSelect = true
     @AppStorage("tabs.hideWhenSingle") private var hideSingleTabBar = true
+    @AppStorage("editorDrawerRatio") private var editorDrawerRatio = EditorDrawerLayout.defaultRatio
     @Environment(\.colorScheme) private var colorScheme
     /// Per-entry attach state, keyed by `AttachedEntry.id`. `endedAttach` holds the exit
     /// code of a dead attach (nil code = no status, e.g. killed by a signal); a present
@@ -613,7 +614,14 @@ struct DetailView: View {
                !(hideSingleTabBar && model.tabs(in: space).count == 1) {
                 SpaceTabBar(model: model, space: space)
             }
-            terminalStack
+            DrawerSplit(
+                isOpen: model.visibleEditorDrawerID != nil,
+                ratio: $editorDrawerRatio
+            ) {
+                terminalStack
+            } drawer: {
+                EditorDrawerStack(model: model)
+            }
         }
     }
 

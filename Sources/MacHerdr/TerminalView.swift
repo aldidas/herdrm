@@ -1736,6 +1736,9 @@ struct ShellTerminalView: NSViewRepresentable {
     /// Delivers the created view so a focus tracker can observe its window's
     /// first responder without retaining the terminal itself.
     var onViewReady: ((LineBreakTerminalView) -> Void)? = nil
+    /// Replaces the default login shell (the editor drawer runs nvim here). Read once,
+    /// when the view is created.
+    var command: TerminalCommand? = nil
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
@@ -1772,11 +1775,11 @@ struct ShellTerminalView: NSViewRepresentable {
             copyOnSelect: copyOnSelect
         )
 
-        let command = HerdrService(device: device, autoStartLocalServer: false)
+        let launch = command ?? HerdrService(device: device, autoStartLocalServer: false)
             .terminalCommand()
-        context.coordinator.authorizationID = command.authorizationID
+        context.coordinator.authorizationID = launch.authorizationID
         context.coordinator.scheduleAuthorizationCleanup()
-        host.start(command: command)
+        host.start(command: launch)
         if let sessionID {
             ShellViewRegistry.register(view, for: sessionID)
         }
