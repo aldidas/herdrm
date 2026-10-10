@@ -19,12 +19,6 @@ final class RepoFilesTests: XCTestCase {
         XCTAssertNil(stats["img.png"])
     }
 
-    func testVimPathEscapingAndEditorNames() {
-        XCTAssertEqual(HerdrService.vimEscapedPath("/a b/c#d.swift"), "/a\\ b/c\\#d.swift")
-        XCTAssertTrue(HerdrService.isEditorProcessName("nvim"))
-        XCTAssertFalse(HerdrService.isEditorProcessName("zsh"))
-    }
-
     func testFuzzyRequiresSubsequence() {
         XCTAssertNil(FuzzyMatcher.score(query: "xyz", path: "Sources/App.swift"))
         XCTAssertNotNil(FuzzyMatcher.score(query: "srcapp", path: "Sources/App.swift"))

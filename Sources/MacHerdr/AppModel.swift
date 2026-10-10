@@ -157,6 +157,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var gitStatuses: [String: GitStatus] = [:]
     private let gitStatusProvider = GitStatusProvider()
     let repoFiles = RepoFiles()
+    @Published var editorDrawers = EditorDrawerRegistry()
 
     struct ActiveLayout: Equatable {
         let tabID: String
@@ -882,37 +883,88 @@ final class AppModel: ObservableObject {
         return (space, directory)
     }
 
-    /// Opens `path` in nvim: types `:e` into a vi-family pane in the space (the
-    /// current tab's first), else starts `nvim` in a new tab.
+    /// The tab the selected pane lives in, for local devices only.
+    var selectedTabKey: EditorDrawerKey? {
+        guard let ref = selectedPane, device(ref.deviceID)?.isLocal == true else { return nil }
+        let state = session(ref.deviceID)
+        let tabID: String? = state.agents.first { $0.paneID == ref.paneID }?.tabID
+            ?? state.panes.first { $0.paneID == ref.paneID }?.tabID
+        return tabID.map { EditorDrawerKey(deviceID: ref.deviceID, tabID: $0) }
+    }
+
+    /// The drawer to draw right now: only beside an attached herdr pane, never over a
+    /// standalone shell or the file manager.
+    var visibleEditorDrawerID: UUID? {
+        guard selectedShellID == nil, !isFileManagerActive, selectedAttachedEntry != nil,
+              let key = selectedTabKey,
+              let session = editorDrawers.session(for: key), session.isVisible
+        else { return nil }
+        return session.id
+    }
+
+    /// ⌘E: hide the tab's drawer if it is showing, else show it (starting plain
+    /// nvim in the pane's directory when the tab has none).
+    func toggleEditorDrawer() {
+        guard let key = selectedTabKey, selectedShellID == nil, !isFileManagerActive,
+              let target = fileSearchTarget
+        else { return }
+        if let session = editorDrawers.session(for: key), session.isVisible {
+            editorDrawers.hide(key)
+            if let entry = selectedAttachedEntry { AttachViewRegistry.focus(entry.id) }
+            return
+        }
+        let shown = editorDrawers.show(
+            key, directory: target.directory, initialFile: nil, socketDirectory: NSTemporaryDirectory()
+        )
+        ShellViewRegistry.focus(shown.session.id)
+    }
+
+    /// Opens `path` in the tab's drawer: a fresh nvim when there is none, otherwise
+    /// the running one over its RPC socket. `space` is kept for the caller's sake;
+    /// the drawer follows the selected pane's tab.
     func openFile(path: String, in space: SpaceRef, directory: String) {
-        guard let device = device(space.deviceID) else { return }
-        let service = service(for: device)
-        let state = session(space.deviceID)
-        let agentPaneIDs = Set(state.agents.map(\.paneID))
-        let activeTab = activeTabID(in: space)
-        let candidates = state.panes
-            .filter { $0.workspaceID == space.workspaceID && !agentPaneIDs.contains($0.paneID) }
-            .sorted { ($0.tabID == activeTab ? 0 : 1) < ($1.tabID == activeTab ? 0 : 1) }
+        guard let key = selectedTabKey else { return }
+        guard let existing = editorDrawers.session(for: key) else {
+            launchDrawer(key: key, directory: directory, file: path)
+            return
+        }
+        editorDrawers.show(key, directory: existing.directory, initialFile: nil, socketDirectory: NSTemporaryDirectory())
         Task { @MainActor in
-            do {
-                for pane in candidates {
-                    let names = await service.foregroundProcessNames(paneID: pane.paneID)
-                    guard names.contains(where: HerdrService.isEditorProcessName) else { continue }
-                    try await service.openInEditor(paneID: pane.paneID, path: path)
-                    reveal(PaneRef(deviceID: space.deviceID, paneID: pane.paneID))
-                    try? await service.focusPane(paneID: pane.paneID)
-                    return
-                }
-                let name = (path as NSString).lastPathComponent
-                let paneID = try await service.createTab(
-                    workspaceID: space.workspaceID, cwd: directory, label: name
-                )
-                _ = await refreshImmediately(space.deviceID)
-                reveal(PaneRef(deviceID: space.deviceID, paneID: paneID))
-                try await service.launchEditor(paneID: paneID, path: path)
-            } catch {
-                actionError = actionErrorMessage(error, device: device)
+            guard let binary = await NvimClient.resolveBinary() else {
+                actionError = String(localized: "nvim was not found in your shell PATH.")
+                return
             }
+            switch await NvimClient.openFile(binary: binary, socketPath: existing.socketPath, path: path) {
+            case .opened:
+                ShellViewRegistry.focus(existing.id)
+            case .unreachable:
+                // nvim died between its exit event and now: replace the session.
+                discardDrawer(id: existing.id)
+                launchDrawer(key: key, directory: directory, file: path)
+            case .rejected(let message):
+                // Alive but refused (e.g. unsaved buffer with 'nohidden'): keep it.
+                actionError = String(localized: "nvim could not open the file: \(message)")
+            }
+        }
+    }
+
+    private func launchDrawer(key: EditorDrawerKey, directory: String, file: String?) {
+        let shown = editorDrawers.show(
+            key, directory: directory, initialFile: file, socketDirectory: NSTemporaryDirectory()
+        )
+        ShellViewRegistry.focus(shown.session.id)
+    }
+
+    private func discardDrawer(id: UUID) {
+        guard let removed = editorDrawers.remove(id: id) else { return }
+        try? FileManager.default.removeItem(atPath: removed.socketPath)
+    }
+
+    /// The drawer's nvim ended (`:q`, crash, or missing binary).
+    func editorDrawerExited(_ id: UUID, code: Int32?) {
+        discardDrawer(id: id)
+        if code == 127 {
+            actionError = String(localized: "nvim was not found in your shell PATH.")
         }
     }
 
@@ -1080,6 +1132,7 @@ final class AppModel: ObservableObject {
     // MARK: - Lifecycle
 
     func start() {
+        EditorDrawerRegistry.removeStaleSockets(in: NSTemporaryDirectory())
         NotificationManager.shared.setup(model: self)
         // Finder-launched apps have launchd's PATH. Capture the login +
         // interactive shell environment on a background thread once; New Agent
@@ -1528,6 +1581,13 @@ final class AppModel: ObservableObject {
             refreshGitStatuses(deviceID: deviceID)
             if selectedPane?.deviceID == deviceID { Task { @MainActor in await refreshActiveLayout() } }
             reconcileAttachSessions(deviceID: deviceID)
+            // A snapshot without a tab list (older herdr) says nothing about tabs;
+            // reconciling against an empty set would tear every drawer down.
+            if let tabs = snapshot.tabs {
+                for removed in editorDrawers.reconcile(deviceID: deviceID, liveTabIDs: Set(tabs.map(\.tabID))) {
+                    try? FileManager.default.removeItem(atPath: removed.socketPath)
+                }
+            }
             let paneIDs = Set((snapshot.panes ?? []).map(\.paneID))
                 .union(snapshot.agents.map(\.paneID))
             // Drop kept-alive attaches whose pane is gone (closed). A pane only taken
