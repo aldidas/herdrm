@@ -23,6 +23,52 @@ final class NvimClientTests: XCTestCase {
         XCTAssertFalse(command.args.joined(separator: " ").contains("MACHERDR_NVIM_FILE"))
     }
 
+    func testLaunchMergesBaseEnvironmentUnderItsOwnKeys() {
+        let command = NvimCommand.launch(
+            directory: "/r", socketPath: "/tmp/s.sock", file: nil,
+            baseEnvironment: ["PATH": "/opt/bin", "SHELL": "/bin/fish", "MACHERDR_NVIM_SOCK": "evil"]
+        )
+        XCTAssertEqual(command.environment["PATH"], "/opt/bin")
+        XCTAssertEqual(command.environment["SHELL"], "/bin/fish")
+        XCTAssertEqual(command.environment["MACHERDR_NVIM_SOCK"], "/tmp/s.sock")
+    }
+
+    func testOpenFileWhenReadyGivesUpAsUnreachable() async throws {
+        let binary = try await XCTUnwrapAsync(await NvimClient.resolveBinary(), "nvim not installed")
+        let result = await NvimClient.openFileWhenReady(
+            binary: binary, socketPath: "/tmp/nope-\(UUID().uuidString.prefix(8)).sock", path: "/etc/hosts",
+            attempts: 2, delay: .milliseconds(50)
+        )
+        XCTAssertEqual(result, .unreachable)
+    }
+
+    /// ⌘E then ⌘K in quick succession: the socket does not exist yet on the first try.
+    func testOpenFileWhenReadyWaitsForALateSocket() async throws {
+        let binary = try await XCTUnwrapAsync(await NvimClient.resolveBinary(), "nvim not installed")
+        let dir = NSTemporaryDirectory() + "nc-\(UUID().uuidString.prefix(6))/"
+        try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        let socket = dir + "n.sock"
+        let target = dir + "late.txt"
+        try "x\n".write(toFile: target, atomically: true, encoding: .utf8)
+        let server = Process()
+        server.executableURL = URL(fileURLWithPath: binary)
+        server.arguments = ["--headless", "--listen", socket]
+        server.standardOutput = FileHandle.nullDevice
+        server.standardError = FileHandle.nullDevice
+        defer {
+            server.terminate()
+            try? FileManager.default.removeItem(atPath: dir)
+        }
+        Task {
+            try await Task.sleep(for: .milliseconds(600))
+            try server.run()
+        }
+        let result = await NvimClient.openFileWhenReady(
+            binary: binary, socketPath: socket, path: target, attempts: 30, delay: .milliseconds(200)
+        )
+        XCTAssertEqual(result, .opened)
+    }
+
     func testVimStringLiteralEscapesBackslashAndQuote() {
         XCTAssertEqual(NvimClient.vimStringLiteral(#"a"b\c"#), #""a\"b\\c""#)
         XCTAssertEqual(

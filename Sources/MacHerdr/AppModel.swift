@@ -868,7 +868,9 @@ final class AppModel: ObservableObject {
     /// Where ⌘K looks for files: the selected pane's cwd, else the space's. Local
     /// devices only — git runs on this Mac.
     var fileSearchTarget: (space: SpaceRef, directory: String)? {
-        guard let space = tabBarSpace, device(space.deviceID)?.isLocal == true else { return nil }
+        guard editorDrawerContext != nil, let space = tabBarSpace,
+              device(space.deviceID)?.isLocal == true
+        else { return nil }
         let state = session(space.deviceID)
         let selectedCwd = selectedPane.flatMap { ref in
             state.agents.first { $0.paneID == ref.paneID }?.cwd
@@ -892,11 +894,19 @@ final class AppModel: ObservableObject {
         return tabID.map { EditorDrawerKey(deviceID: ref.deviceID, tabID: $0) }
     }
 
-    /// The drawer to draw right now: only beside an attached herdr pane, never over a
-    /// standalone shell or the file manager.
+    /// The tab whose drawer the user can currently see and type into: an attached herdr
+    /// pane is selected and neither a standalone shell nor the file manager covers it.
+    /// Everything that shows, focuses, or opens into a drawer is gated on this, so a
+    /// drawer is never given the keyboard while invisible.
+    var editorDrawerContext: EditorDrawerKey? {
+        guard selectedShellID == nil, !isFileManagerActive, selectedAttachedEntry != nil
+        else { return nil }
+        return selectedTabKey
+    }
+
+    /// The drawer to draw right now.
     var visibleEditorDrawerID: UUID? {
-        guard selectedShellID == nil, !isFileManagerActive, selectedAttachedEntry != nil,
-              let key = selectedTabKey,
+        guard let key = editorDrawerContext,
               let session = editorDrawers.session(for: key), session.isVisible
         else { return nil }
         return session.id
@@ -905,9 +915,7 @@ final class AppModel: ObservableObject {
     /// ⌘E: hide the tab's drawer if it is showing, else show it (starting plain
     /// nvim in the pane's directory when the tab has none).
     func toggleEditorDrawer() {
-        guard let key = selectedTabKey, selectedShellID == nil, !isFileManagerActive,
-              let target = fileSearchTarget
-        else { return }
+        guard let key = editorDrawerContext, let target = fileSearchTarget else { return }
         if let session = editorDrawers.session(for: key), session.isVisible {
             editorDrawers.hide(key)
             if let entry = selectedAttachedEntry { AttachViewRegistry.focus(entry.id) }
@@ -923,7 +931,7 @@ final class AppModel: ObservableObject {
     /// the running one over its RPC socket. `space` is kept for the caller's sake;
     /// the drawer follows the selected pane's tab.
     func openFile(path: String, in space: SpaceRef, directory: String) {
-        guard let key = selectedTabKey else { return }
+        guard let key = editorDrawerContext else { return }
         guard let existing = editorDrawers.session(for: key) else {
             launchDrawer(key: key, directory: directory, file: path)
             return
@@ -934,13 +942,16 @@ final class AppModel: ObservableObject {
                 actionError = String(localized: "nvim was not found in your shell PATH.")
                 return
             }
-            switch await NvimClient.openFile(binary: binary, socketPath: existing.socketPath, path: path) {
+            // The socket may not exist yet (drawer just started) and a busy nvim answers
+            // late; the session is only dropped when its process exits
+            // (`editorDrawerExited`), never because an RPC failed.
+            switch await NvimClient.openFileWhenReady(
+                binary: binary, socketPath: existing.socketPath, path: path
+            ) {
             case .opened:
                 ShellViewRegistry.focus(existing.id)
             case .unreachable:
-                // nvim died between its exit event and now: replace the session.
-                discardDrawer(id: existing.id)
-                launchDrawer(key: key, directory: directory, file: path)
+                actionError = String(localized: "nvim did not respond. It may be busy or still starting.")
             case .rejected(let message):
                 // Alive but refused (e.g. unsaved buffer with 'nohidden'): keep it.
                 actionError = String(localized: "nvim could not open the file: \(message)")

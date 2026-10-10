@@ -85,12 +85,37 @@ public struct EditorDrawerRegistry: Sendable {
         return stale
     }
 
-    /// Deletes `macherdr-nvim-*.sock` left behind by a previous run.
+    /// Deletes `macherdr-nvim-*.sock` that nothing is listening on (left behind by a
+    /// crash). Another running instance shares this directory, so live sockets stay.
     public static func removeStaleSockets(in directory: String) {
         let names = (try? FileManager.default.contentsOfDirectory(atPath: directory)) ?? []
         for name in names where name.hasPrefix("macherdr-nvim-") && name.hasSuffix(".sock") {
-            try? FileManager.default.removeItem(atPath: directory + name)
+            let path = directory + name
+            if !isListening(socketPath: path) { try? FileManager.default.removeItem(atPath: path) }
         }
+    }
+
+    /// True when a connection to the unix socket succeeds. A regular file or a socket
+    /// whose listener is gone fails to connect.
+    static func isListening(socketPath: String) -> Bool {
+        let fd = Darwin.socket(AF_UNIX, SOCK_STREAM, 0)
+        guard fd >= 0 else { return false }
+        defer { close(fd) }
+        var address = sockaddr_un()
+        address.sun_family = sa_family_t(AF_UNIX)
+        let capacity = MemoryLayout.size(ofValue: address.sun_path)
+        guard socketPath.utf8.count < capacity else { return false }
+        _ = withUnsafeMutablePointer(to: &address.sun_path) {
+            $0.withMemoryRebound(to: CChar.self, capacity: capacity) {
+                strlcpy($0, socketPath, capacity)
+            }
+        }
+        let result = withUnsafePointer(to: &address) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                Darwin.connect(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
+            }
+        }
+        return result == 0
     }
 }
 

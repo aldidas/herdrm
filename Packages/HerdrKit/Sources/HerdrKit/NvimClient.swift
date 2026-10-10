@@ -7,11 +7,18 @@ public enum NvimCommand {
     /// Runs nvim through the user's login shell (the app's own environment is
     /// sparse) with `--listen` so files can be opened later over RPC. Exit status
     /// 127 means the shell could not find nvim.
-    public static func launch(directory: String, socketPath: String, file: String?) -> TerminalCommand {
-        var environment = [
-            "MACHERDR_NVIM_DIR": directory,
-            "MACHERDR_NVIM_SOCK": socketPath,
-        ]
+    /// `baseEnvironment` (the user's captured shell environment: PATH, SHELL, …) goes
+    /// underneath; the `MACHERDR_NVIM_*` keys always win.
+    public static func launch(
+        directory: String,
+        socketPath: String,
+        file: String?,
+        baseEnvironment: [String: String] = [:]
+    ) -> TerminalCommand {
+        var environment = baseEnvironment
+        environment["MACHERDR_NVIM_DIR"] = directory
+        environment["MACHERDR_NVIM_SOCK"] = socketPath
+        environment["MACHERDR_NVIM_FILE"] = nil
         var nvim = #"exec nvim --listen "$MACHERDR_NVIM_SOCK""#
         if let file {
             environment["MACHERDR_NVIM_FILE"] = file
@@ -68,6 +75,26 @@ public enum NvimClient {
             return .rejected("nvim did not answer")
         }
         return edit.status == 0 ? .opened : .rejected(edit.output)
+    }
+
+    /// Like `openFile`, but keeps retrying while the socket is unreachable: right after
+    /// a drawer starts, nvim has not created `--listen`'s socket yet. Still
+    /// `.unreachable` after `attempts` means nvim is busy or gone — never a reason to
+    /// kill it.
+    public static func openFileWhenReady(
+        binary: String,
+        socketPath: String,
+        path: String,
+        attempts: Int = 15,
+        delay: Duration = .milliseconds(200)
+    ) async -> OpenResult {
+        var result = OpenResult.unreachable
+        for attempt in 0..<max(attempts, 1) {
+            result = await openFile(binary: binary, socketPath: socketPath, path: path)
+            if result != .unreachable || attempt == attempts - 1 { break }
+            try? await Task.sleep(for: delay)
+        }
+        return result
     }
 
     public static func evaluate(binary: String, socketPath: String, expression: String) async -> String? {

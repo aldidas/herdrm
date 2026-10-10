@@ -78,6 +78,14 @@ struct EditorDrawerStack: View {
     @AppStorage("terminal.copyOnSelect") private var copyOnSelect = true
     @Environment(\.colorScheme) private var colorScheme
 
+    /// The user's captured login environment (PATH, SHELL, …), like the SSH terminal
+    /// command uses: the app's own launch environment is too sparse to find nvim.
+    private var baseEnvironment: [String: String] {
+        var environment = (ShellEnvironment.cached ?? .empty).launchEnvironment(binary: nil)
+        for key in ["TERM", "COLUMNS", "LINES"] { environment.removeValue(forKey: key) }
+        return environment
+    }
+
     var body: some View {
         ZStack {
             ForEach(model.editorDrawers.all) { session in
@@ -98,7 +106,8 @@ struct EditorDrawerStack: View {
                     command: NvimCommand.launch(
                         directory: session.directory,
                         socketPath: session.socketPath,
-                        file: session.initialFile
+                        file: session.initialFile,
+                        baseEnvironment: baseEnvironment
                     )
                 )
                 // Stable id, not keyed on colorScheme: a new id would kill nvim.

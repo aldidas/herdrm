@@ -63,6 +63,39 @@ final class EditorDrawerTests: XCTestCase {
         XCTAssertEqual(EditorDrawerLayout.defaultRatio, 0.45)
     }
 
+    /// Two app instances share one $TMPDIR; the second must not unlink the first's live sockets.
+    func testRemoveStaleSocketsKeepsSocketsSomeoneIsListeningOn() throws {
+        let dir = NSTemporaryDirectory() + "ds-\(UUID().uuidString.prefix(6))/"
+        try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: dir) }
+        let live = try Self.unixSocket(at: dir + "macherdr-nvim-live0000.sock", listening: true)
+        defer { close(live) }
+        let dead = try Self.unixSocket(at: dir + "macherdr-nvim-dead0000.sock", listening: true)
+        close(dead)  // the file stays behind, like after a crash
+
+        EditorDrawerRegistry.removeStaleSockets(in: dir)
+        let left = try FileManager.default.contentsOfDirectory(atPath: dir)
+        XCTAssertEqual(left, ["macherdr-nvim-live0000.sock"])
+    }
+
+    private static func unixSocket(at path: String, listening: Bool) throws -> Int32 {
+        let fd = Darwin.socket(AF_UNIX, SOCK_STREAM, 0)
+        XCTAssertGreaterThanOrEqual(fd, 0)
+        var address = sockaddr_un()
+        address.sun_family = sa_family_t(AF_UNIX)
+        _ = withUnsafeMutablePointer(to: &address.sun_path) {
+            $0.withMemoryRebound(to: CChar.self, capacity: 104) { strncpy($0, path, 103) }
+        }
+        let bound = withUnsafePointer(to: &address) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                Darwin.bind(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
+            }
+        }
+        XCTAssertEqual(bound, 0, "bind \(path)")
+        if listening { XCTAssertEqual(Darwin.listen(fd, 1), 0) }
+        return fd
+    }
+
     func testRemoveStaleSocketsOnlyTouchesOurFiles() throws {
         let dir = NSTemporaryDirectory() + "drawer-sockets-\(UUID().uuidString.prefix(8))/"
         try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
