@@ -118,7 +118,9 @@ struct RootView: View {
 /// re-centers them, so the sidebar toggle and the title strip share one centerline.
 enum TitlebarMetrics {
     static let height: CGFloat = 52
-    static let trafficLightClearance: CGFloat = 78
+    /// Left edge of the close button (the system default is 7pt).
+    static let trafficLightLeading: CGFloat = 16
+    static let trafficLightClearance: CGFloat = 78 + (trafficLightLeading - 7)
 }
 
 /// Resizes the window's titlebar container to `TitlebarMetrics.height` and
@@ -143,11 +145,12 @@ enum TitlebarLayout {
         if abs(titlebar.frame.height - target) > 0.5 || titlebar.frame.origin.y != 0 {
             titlebar.frame = NSRect(x: titlebar.frame.origin.x, y: 0, width: titlebar.frame.width, height: target)
         }
+        let shift = TitlebarMetrics.trafficLightLeading - close.frame.origin.x
         for type in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
             guard let button = window.standardWindowButton(type) else { continue }
             let y = (titlebar.bounds.height - button.frame.height) / 2
-            if abs(button.frame.origin.y - y) > 0.5 {
-                button.setFrameOrigin(NSPoint(x: button.frame.origin.x, y: y))
+            if abs(button.frame.origin.y - y) > 0.5 || abs(shift) > 0.5 {
+                button.setFrameOrigin(NSPoint(x: button.frame.origin.x + shift, y: y))
             }
         }
     }
@@ -182,6 +185,18 @@ private final class WindowTitlebarInteractionView: NSView {
             guard let window else { return }
             TitlebarLayout.apply(to: window)
         }
+        // AppKit re-lays the titlebar out mid-resize; correct it as it happens.
+        if let titlebar = window.standardWindowButton(.closeButton)?.superview {
+            for view in [titlebar, titlebar.superview].compactMap({ $0 }) {
+                view.postsFrameChangedNotifications = true
+                NotificationCenter.default.addObserver(
+                    self,
+                    selector: #selector(titlebarNeedsLayout(_:)),
+                    name: NSView.frameDidChangeNotification,
+                    object: view
+                )
+            }
+        }
         for name in [
             NSWindow.didResizeNotification, NSWindow.didExitFullScreenNotification,
             NSWindow.didBecomeKeyNotification, NSWindow.didChangeScreenNotification,
@@ -213,12 +228,10 @@ private final class WindowTitlebarInteractionView: NSView {
     }
 
     @objc private func titlebarNeedsLayout(_ notification: Notification) {
-        guard let window = notification.object as? NSWindow else { return }
-        // After AppKit finishes its own layout pass for this event.
-        DispatchQueue.main.async { [weak window] in
-            guard let window else { return }
-            TitlebarLayout.apply(to: window)
-        }
+        guard let window = (notification.object as? NSWindow) ?? (notification.object as? NSView)?.window else { return }
+        // Synchronously: a deferred pass lets AppKit's default button position
+        // draw for a frame during live resize, which shows as jumping buttons.
+        TitlebarLayout.apply(to: window)
     }
 
     @objc private func windowFrameDidChange(_ notification: Notification) {

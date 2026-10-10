@@ -29,6 +29,9 @@ the Sparkle update description — a release without a section here fails CI.
   *menu* strip next to *new*.
 
 ### Fixed
+- The traffic lights no longer jump up and down while the window is resized, and sit a
+  little further from the left edge. The sidebar footer (device filter, settings) has more
+  margin from the window edge.
 - Picked from upstream herdrm 0.6.12: a remote device no longer fails with "SSH tunnel
   failed: ssh exited 0" under `ControlMaster auto` (the tunnel opens its own
   connection); tunnels left behind by a killed app are stopped at launch; `kill`/SIGTERM

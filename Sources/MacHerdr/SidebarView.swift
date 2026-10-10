@@ -406,8 +406,9 @@ struct SidebarView: View {
             .buttonStyle(.plain)
             .focusEffectDisabled()
         }
-        .padding(.horizontal, 10)
-        .frame(height: 40)
+        .padding(.horizontal, 16)
+        .padding(.bottom, 4)
+        .frame(height: 44)
     }
 
     private var connectionDotColor: Color {
