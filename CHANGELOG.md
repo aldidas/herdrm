@@ -8,10 +8,12 @@ the Sparkle update description — a release without a section here fails CI.
 ## [Unreleased]
 
 ### Added
+- **Editor drawer.** ⌘E toggles a per-tab nvim drawer on the right; choosing a file in
+  ⌘K → Files opens it there (a running nvim switches buffer over its RPC socket). Hiding
+  keeps nvim alive. Local spaces only.
 - **File search in ⌘K.** The palette is now tabbed (Files, Terminals, Agents, Spaces;
   ⌘1–⌘4). Files lists the repo's changed files with diff stats, and fuzzy-searches
-  tracked files as you type. Choosing one runs `:e` in an nvim/vim pane of the space,
-  or opens a new tab with nvim.
+  tracked files as you type. Choosing one opens it in the editor drawer.
 - **Ghostty themes.** Settings › Terminal has a theme picker backed by the bundled
   Ghostty theme catalog, and *Import from Ghostty…* now also reads `theme` from
   `~/.config/ghostty/config`. The terminal background and the light-theme color

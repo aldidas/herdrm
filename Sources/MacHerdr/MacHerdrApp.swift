@@ -122,6 +122,14 @@ struct MacHerdrApp: App {
             }
 
             CommandMenu("Terminal") {
+                // Not `.disabled` on model state: the commands body is evaluated once per
+                // focused-value change, so such a flag would go stale (see the note on
+                // `splitAxis` above). The action guards itself instead.
+                Button("Toggle Editor Drawer") { focusedModel?.toggleEditorDrawer() }
+                    .keyboardShortcut("e", modifiers: .command)
+
+                Divider()
+
                 // Guarded on selectedAttachedEntry, not just on the model: with the placeholder
                 // on screen there is no SplitContainer to render into, so a split would
                 // be invisible yet leave shellSplitAxis non-nil — and the next ⌘W would

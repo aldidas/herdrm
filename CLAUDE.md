@@ -21,6 +21,9 @@ Design canvas (waku-style sidebar, light/dark): `design/` — published as the
   local `forkpty` byte pump. `LineBreakTerminalView` subclasses ghostty's
   `AppTerminalView` and keeps MacHerdr's own behavior (light-mode ANSI adapter,
   ⌘-editing-key readline chords via `session.sendInput`, agent-aware paste).
+- Editor drawer (⌘E, per herdr tab, local only): `EditorDrawerRegistry` / `NvimClient` in
+  HerdrKit, `DrawerSplit` / `EditorDrawerStack` in `Sources/MacHerdr/EditorDrawerView.swift`.
+  nvim runs with `--listen $TMPDIR/macherdr-nvim-*.sock`; ⌘K files go over that socket.
 - `design/` — design canvas working files (`*.dc.html` artboards + `canvas.json`).
 
 ## Build & test
