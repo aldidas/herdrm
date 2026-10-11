@@ -8,6 +8,9 @@ the Sparkle update description — a release without a section here fails CI.
 ## [Unreleased]
 
 ### Added
+- **Titlebar info button.** The agent/terminal details (status, space, device, path) and
+  usage now live in one trailing button with a popup, shown whether or not the tab strip
+  is visible; it replaces the inline right-side text.
 - **Editor drawer.** ⌘E toggles a per-tab nvim drawer on the right; choosing a file in
   ⌘K → Files opens it there (a running nvim switches buffer over its RPC socket). Hiding
   keeps nvim alive. Local spaces only.

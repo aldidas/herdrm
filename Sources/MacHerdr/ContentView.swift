@@ -399,22 +399,72 @@ struct DetailView: View {
         .onChange(of: model.selectedAttachedEntry?.id) { _, _ in showUsage = false }
     }
 
-    /// The selected agent's usage, if its plugin publishes any.
-    private var selectedAgentUsage: (kind: String, usage: AgentUsage)? {
-        guard case .agent(let entry)? = model.selectedAttachedEntry,
-              model.selectedShellID == nil, !model.isFileManagerActive,
-              let usage = entry.agent.usage
+    /// Details and usage of the selected agent or terminal, shown by the titlebar info button.
+    private var selectedInfo: TitlebarInfo? {
+        guard model.selectedShellID == nil, !model.isFileManagerActive,
+              let attached = model.selectedAttachedEntry
         else { return nil }
-        return (entry.agent.agent, usage)
+        switch attached {
+        case .agent(let entry):
+            let agent = entry.agent
+            return TitlebarInfo(
+                agentKind: agent.agent,
+                title: entry.title,
+                spaceName: model.spaceName(deviceID: entry.device.id, workspaceID: agent.workspaceID),
+                device: entry.device,
+                status: agent.status,
+                cwd: agent.cwd,
+                usage: agent.usage
+            )
+        case .terminal(let entry):
+            return TitlebarInfo(
+                agentKind: nil,
+                title: entry.title,
+                spaceName: model.spaceName(deviceID: entry.device.id, workspaceID: entry.pane.workspaceID),
+                device: entry.device,
+                status: nil,
+                cwd: entry.pane.cwd,
+                usage: nil
+            )
+        }
+    }
+
+    /// Trailing titlebar button, identical with or without the tab strip.
+    @ViewBuilder
+    private var infoButton: some View {
+        if let info = selectedInfo {
+            Button { showUsage.toggle() } label: {
+                HStack(spacing: 6) {
+                    if info.status == .blocked { statusGlyph(.blocked) }
+                    if let kind = info.agentKind {
+                        AgentKindBadge(kind: kind)
+                    } else {
+                        Image(systemName: "terminal")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Theme.textTertiary)
+                    }
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundStyle(Theme.textGhost)
+                }
+                .padding(.horizontal, 12)
+                .frame(height: 30)
+                .selectedTabGlass(true)
+                .contentShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .help("Info & Usage")
+            .accessibilityIdentifier("titlebar.usage")
+        }
     }
 
     @ViewBuilder
     private var usagePanel: some View {
-        if showUsage, let current = selectedAgentUsage {
+        if showUsage, let info = selectedInfo {
             ZStack(alignment: .topTrailing) {
                 Color.black.opacity(0.001)
                     .onTapGesture { showUsage = false }
-                UsagePopover(agentKind: current.kind, usage: current.usage)
+                UsagePopover(info: info, showsDevice: model.showsRowDeviceBadges)
                     .padding(.top, TitlebarMetrics.height + 6)
                     .padding(.trailing, 12)
                     .transition(.scale(scale: 0.96, anchor: .topTrailing).combined(with: .opacity))
@@ -476,17 +526,7 @@ struct DetailView: View {
             if let space = titlebarTabSpace {
                 compactTitle
                 SpaceTabBar(model: model, space: space)
-                if let current = selectedAgentUsage {
-                    Button { showUsage.toggle() } label: {
-                        AgentKindBadge(kind: current.kind)
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 2)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .help("Usage")
-                    .accessibilityIdentifier("titlebar.usage")
-                }
+                infoButton
             } else {
             Group {
                 if model.isFileManagerActive {
@@ -518,7 +558,7 @@ struct DetailView: View {
                     switch attached {
                     case .agent(let entry):
                         let agent = entry.agent
-                        // Only the usage badge takes clicks; the rest stays inert so
+                        // Only the info button takes clicks; the rest stays inert so
                         // the strip keeps dragging the window (see the Group below).
                         statusGlyph(agent.status).allowsHitTesting(false)
                         Text(entry.title)
@@ -530,37 +570,7 @@ struct DetailView: View {
                             .allowsHitTesting(false)
                         newTabButton
                         Spacer(minLength: 12)
-                        if agent.usage != nil {
-                            Button { showUsage.toggle() } label: {
-                                AgentKindBadge(kind: agent.agent)
-                                    .padding(.horizontal, 5)
-                                    .padding(.vertical, 2)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 5)
-                                            .fill(showUsage ? AnyShapeStyle(Theme.itemWashSelected) : AnyShapeStyle(.clear))
-                                    )
-                                    .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                            .help("Usage")
-                            .accessibilityIdentifier("titlebar.usage")
-                        } else {
-                            AgentKindBadge(kind: agent.agent).allowsHitTesting(false)
-                        }
-                        Group {
-                            Text("\u{b7}")
-                                .font(.system(size: 11.5))
-                                .foregroundStyle(Theme.textGhost)
-                            Text(model.spaceName(deviceID: entry.device.id, workspaceID: agent.workspaceID))
-                                .font(.system(size: 11.5))
-                                .foregroundStyle(Theme.textTertiary)
-                                .lineLimit(1)
-                            if model.showsRowDeviceBadges {
-                                DeviceChip(device: entry.device)
-                            }
-                            statusPill(agent.status)
-                        }
-                        .allowsHitTesting(false)
+                        infoButton
                     case .terminal(let entry):
                         Image(systemName: "terminal")
                             .font(.system(size: 12, weight: .semibold))
@@ -575,16 +585,7 @@ struct DetailView: View {
                             .allowsHitTesting(false)
                         newTabButton
                         Spacer(minLength: 12)
-                        Group {
-                            Text(model.spaceName(deviceID: entry.device.id, workspaceID: entry.pane.workspaceID))
-                                .font(.system(size: 11.5))
-                                .foregroundStyle(Theme.textTertiary)
-                                .lineLimit(1)
-                            if model.showsRowDeviceBadges {
-                                DeviceChip(device: entry.device)
-                            }
-                        }
-                        .allowsHitTesting(false)
+                        infoButton
                     }
                 } else {
                     Text("No terminal selected")
@@ -652,26 +653,6 @@ struct DetailView: View {
             EmptyView()
         case .idle, .unknown:
             EmptyView()
-        }
-    }
-
-    @ViewBuilder
-    private func statusPill(_ status: AgentStatus) -> some View {
-        let label: String? = {
-            switch status {
-            case .working: return String(localized: "Working")
-            case .blocked: return String(localized: "Needs input")
-            case .done: return String(localized: "Done")
-            case .idle, .unknown: return nil
-            }
-        }()
-        if let label {
-            Text(label)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(Theme.statusColor(status))
-                .padding(.horizontal, 8)
-                .frame(height: 20)
-                .background(Theme.statusColor(status).opacity(0.13), in: Capsule())
         }
     }
 
