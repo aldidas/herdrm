@@ -1,5 +1,7 @@
 ---
-description: Commit current changes, push to the fork, and make install
+name: cpm
+description: Commit current changes, push to the fork (origin), and run make install. Use when the user says /cpm or asks to commit, push, and install.
+disable-model-invocation: true
 allowed-tools: Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git add:*), Bash(git commit:*), Bash(git push origin:*), Bash(make install)
 ---
 
