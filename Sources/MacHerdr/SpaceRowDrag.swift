@@ -266,7 +266,49 @@ final class SidebarRowDragNSView: NSView, NSDraggingSource {
         endedAt screenPoint: NSPoint,
         operation: NSDragOperation
     ) {
+        unpinWindowIfOutside()
         onDragEnd?()
+    }
+
+    private var pinnedWindow: NSWindow?
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        guard horizontal else { return }
+        addTrackingArea(NSTrackingArea(
+            rect: .zero,
+            options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+            owner: self
+        ))
+    }
+
+    // The window server decides at mouse-down whether a titlebar press drags the window,
+    // before any view sees it, so the window is pinned while the pointer is over a tab.
+    override func mouseEntered(with event: NSEvent) { pinWindow() }
+    override func mouseExited(with event: NSEvent) { unpinWindow() }
+
+    override func viewWillMove(toWindow newWindow: NSWindow?) {
+        unpinWindow()
+        super.viewWillMove(toWindow: newWindow)
+    }
+
+    private func unpinWindowIfOutside() {
+        guard let window else { return unpinWindow() }
+        let point = convert(window.mouseLocationOutsideOfEventStream, from: nil)
+        if !bounds.contains(point) { unpinWindow() }
+    }
+
+    /// Rows in the titlebar strip would otherwise also drag the window; hold it still while pressed.
+    private func pinWindow() {
+        guard let window, window.isMovable else { return }
+        window.isMovable = false
+        pinnedWindow = window
+    }
+
+    private func unpinWindow() {
+        pinnedWindow?.isMovable = true
+        pinnedWindow = nil
     }
 
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
