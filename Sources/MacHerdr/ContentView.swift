@@ -448,9 +448,15 @@ struct DetailView: View {
 
     /// The space whose tabs the titlebar shows, if any.
     private var titlebarTabSpace: SpaceRef? {
+        guard let space = tabbedSpace, !(hideSingleTabBar && model.tabs(in: space).count == 1)
+        else { return nil }
+        return space
+    }
+
+    /// The space whose tabs apply to the current selection, regardless of the hide-single-tab option.
+    private var tabbedSpace: SpaceRef? {
         guard let space = model.tabBarSpace, model.selectedShellID == nil, !model.isFileManagerActive,
-              !model.tabs(in: space).isEmpty,
-              !(hideSingleTabBar && model.tabs(in: space).count == 1)
+              !model.tabs(in: space).isEmpty
         else { return nil }
         return space
     }
@@ -484,23 +490,29 @@ struct DetailView: View {
             } else {
             Group {
                 if model.isFileManagerActive {
-                    Image(systemName: "folder")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Theme.textTertiary)
-                    Text("Files")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(Theme.text)
+                    Group {
+                        Image(systemName: "folder")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Theme.textTertiary)
+                        Text("Files")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(Theme.text)
+                    }
+                    .allowsHitTesting(false)
                     Spacer()
                 } else if let shell = model.selectedShell {
-                    Image(systemName: "terminal")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Theme.textTertiary)
-                    Text(shell.title)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(Theme.text)
-                    Text(shell.device.name)
-                        .font(.system(size: 11.5))
-                        .foregroundStyle(Theme.textTertiary)
+                    Group {
+                        Image(systemName: "terminal")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Theme.textTertiary)
+                        Text(shell.title)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(Theme.text)
+                        Text(shell.device.name)
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(Theme.textTertiary)
+                    }
+                    .allowsHitTesting(false)
                     Spacer()
                 } else if let attached = model.selectedAttachedEntry {
                     switch attached {
@@ -516,6 +528,7 @@ struct DetailView: View {
                             .layoutPriority(1)
                             .help((agent.cwd as NSString?)?.abbreviatingWithTildeInPath ?? "")
                             .allowsHitTesting(false)
+                        newTabButton
                         Spacer(minLength: 12)
                         if agent.usage != nil {
                             Button { showUsage.toggle() } label: {
@@ -532,7 +545,7 @@ struct DetailView: View {
                             .help("Usage")
                             .accessibilityIdentifier("titlebar.usage")
                         } else {
-                            AgentKindBadge(kind: agent.agent)
+                            AgentKindBadge(kind: agent.agent).allowsHitTesting(false)
                         }
                         Group {
                             Text("\u{b7}")
@@ -552,35 +565,53 @@ struct DetailView: View {
                         Image(systemName: "terminal")
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundStyle(Theme.textTertiary)
+                            .allowsHitTesting(false)
                         Text(entry.title)
                             .font(.system(size: 13, weight: .medium))
                             .foregroundStyle(Theme.text)
                             .lineLimit(1)
                             .layoutPriority(1)
                             .help((entry.pane.cwd as NSString?)?.abbreviatingWithTildeInPath ?? "")
+                            .allowsHitTesting(false)
+                        newTabButton
                         Spacer(minLength: 12)
-                        Text(model.spaceName(deviceID: entry.device.id, workspaceID: entry.pane.workspaceID))
-                            .font(.system(size: 11.5))
-                            .foregroundStyle(Theme.textTertiary)
-                            .lineLimit(1)
-                        if model.showsRowDeviceBadges {
-                            DeviceChip(device: entry.device)
+                        Group {
+                            Text(model.spaceName(deviceID: entry.device.id, workspaceID: entry.pane.workspaceID))
+                                .font(.system(size: 11.5))
+                                .foregroundStyle(Theme.textTertiary)
+                                .lineLimit(1)
+                            if model.showsRowDeviceBadges {
+                                DeviceChip(device: entry.device)
+                            }
                         }
+                        .allowsHitTesting(false)
                     }
                 } else {
                     Text("No terminal selected")
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(Theme.textTertiary)
+                        .allowsHitTesting(false)
                     Spacer()
                 }
             }
-            .allowsHitTesting(selectedAgentUsage != nil)
             }
         }
         .padding(.leading, sidebarCollapsed ? 10 : 14)
         .padding(.trailing, 12)
         .frame(height: TitlebarMetrics.height)
         .windowTitlebarInteraction()
+    }
+
+    /// "New tab" beside the title while the tab strip is hidden for a lone tab.
+    @ViewBuilder
+    private var newTabButton: some View {
+        if let space = tabbedSpace {
+            Button { model.newTab(in: space) } label: {
+                TitlebarIconLabel(systemName: "plus")
+            }
+            .buttonStyle(.plain)
+            .help("New Tab")
+        }
     }
 
     /// Name-only title shown beside the titlebar tabs; the rest moves to the tooltip.
