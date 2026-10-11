@@ -9,32 +9,50 @@ struct SidebarRail: View {
 
     @ObservedObject var model: AppModel
     @Binding var collapsed: Bool
+    @AppStorage("sidebar.spacesFraction") private var splitFraction: Double = 0.5
+
+    private static let dividerHeight: CGFloat = 9
+
+    private func pane<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 2) { content() }
+                .padding(.horizontal, 4)
+        }
+        .clipped()
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             Color.clear
-                .frame(height: TitlebarMetrics.height + 8)
+                .frame(height: TitlebarMetrics.height + 12)
                 .windowTitlebarInteraction()
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 2) {
-                    ForEach(Array(model.visibleSpaces.enumerated()), id: \.element.id) { index, entry in
-                        spaceRow(index: index, entry: entry)
+            // Same split as the expanded sidebar: Spaces above, Agents below,
+            // divided at the shared persisted fraction.
+            GeometryReader { geo in
+                let usable = max(0, geo.size.height - Self.dividerHeight)
+                let lo: CGFloat = 96
+                let hi = max(lo, usable - lo)
+                let spacesHeight = min(max(usable * splitFraction, lo), hi)
+                VStack(spacing: 0) {
+                    pane {
+                        ForEach(Array(model.visibleSpaces.enumerated()), id: \.element.id) { index, entry in
+                            spaceRow(index: index, entry: entry)
+                        }
                     }
-                    let agents = model.agentsInScope
-                    if !agents.isEmpty {
-                        Rectangle()
-                            .fill(Theme.sidebarBorder)
-                            .frame(height: 1)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 6)
-                        ForEach(Array(agents.enumerated()), id: \.element.id) { index, entry in
+                    .frame(height: spacesHeight)
+                    Rectangle()
+                        .fill(Theme.hairline)
+                        .frame(height: 1)
+                        .padding(.horizontal, 4)
+                        .frame(height: Self.dividerHeight)
+                    pane {
+                        ForEach(Array(model.agentsInScope.enumerated()), id: \.element.id) { index, entry in
                             agentRow(index: index, entry: entry)
                         }
                     }
+                    .frame(maxHeight: .infinity)
                 }
-                .padding(.horizontal, 4)
             }
-            Spacer(minLength: 0)
         }
         .frame(width: Self.width)
         .background(Theme.sidebarBackground.ignoresSafeArea())
