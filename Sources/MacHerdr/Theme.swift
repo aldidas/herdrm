@@ -49,7 +49,11 @@ enum Theme {
     }
     private static let builtInTerminalBackground = dynamic(hex(0xFFFFFF), hex(0x101012))
     /// Solid (not vibrancy) so the sidebar never shows the desktop through it.
-    static let sidebarBackground = dynamic(hex(0xF1F1F2), hex(0x141416))
+    /// Same surface as the titlebar, so the sidebar and titlebar read as one.
+    static let sidebarBackground = contentBackground
+    /// Titlebar tab strip: lighter than `contentBackground` (the titlebar) in dark mode,
+    /// darker in light mode.
+    static let tabStripBackground = dynamic(hex(0xE6E6E8), hex(0x262628))
     static let statusBarBackground = dynamic(hex(0xF1F1F2), hex(0x141416))
     static let sidebarBorder = dynamic(hex(0xD9D9D9), hex(0x292929))
     static let hairline = dynamic(hex(0x000000, alpha: 0.08), hex(0xFFFFFF, alpha: 0.06))

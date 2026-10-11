@@ -346,6 +346,13 @@ extension View {
     }
 }
 
+enum DetailMetrics {
+    /// Gap right of and below the terminal; equals the gap between the titlebar
+    /// tab strip and the terminal (titlebar 52pt, strip 36pt).
+    static let terminalMargin: CGFloat = 8
+    static let terminalCornerRadius: CGFloat = 10
+}
+
 struct DetailView: View {
     @ObservedObject var model: AppModel
     @Binding var sidebarCollapsed: Bool
@@ -357,8 +364,10 @@ struct DetailView: View {
             titlebar
                 .background(Theme.contentBackground)
                 .zIndex(1)
-            Rectangle().fill(Theme.hairline).frame(height: 1)
             detailContent
+                .clipShape(RoundedRectangle(cornerRadius: DetailMetrics.terminalCornerRadius, style: .continuous))
+                .padding(.trailing, DetailMetrics.terminalMargin)
+                .padding(.bottom, DetailMetrics.terminalMargin)
                 // Losing the selected agent tears the SplitContainer down without
                 // resetting the axis, which would leave the same phantom split.
                 //
@@ -437,6 +446,15 @@ struct DetailView: View {
 
     // MARK: - Titlebar strip (TitlebarMetrics.height)
 
+    /// The space whose tabs the titlebar shows, if any.
+    private var titlebarTabSpace: SpaceRef? {
+        guard let space = model.tabBarSpace, model.selectedShellID == nil, !model.isFileManagerActive,
+              !model.tabs(in: space).isEmpty,
+              !(hideSingleTabBar && model.tabs(in: space).count == 1)
+        else { return nil }
+        return space
+    }
+
     private var titlebar: some View {
         HStack(spacing: 8) {
             if sidebarCollapsed {
@@ -447,6 +465,21 @@ struct DetailView: View {
                 }
                 TitlebarActionsMenu(model: model)
             }
+            if let space = titlebarTabSpace {
+                compactTitle
+                SpaceTabBar(model: model, space: space)
+                if let current = selectedAgentUsage {
+                    Button { showUsage.toggle() } label: {
+                        AgentKindBadge(kind: current.kind)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 2)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Usage")
+                    .accessibilityIdentifier("titlebar.usage")
+                }
+            } else {
             Group {
                 if model.isFileManagerActive {
                     Image(systemName: "folder")
@@ -540,11 +573,37 @@ struct DetailView: View {
                 }
             }
             .allowsHitTesting(selectedAgentUsage != nil)
+            }
         }
         .padding(.leading, sidebarCollapsed ? 10 : 14)
         .padding(.trailing, 12)
         .frame(height: TitlebarMetrics.height)
         .windowTitlebarInteraction()
+    }
+
+    /// Name-only title shown beside the titlebar tabs; the rest moves to the tooltip.
+    @ViewBuilder
+    private var compactTitle: some View {
+        if let attached = model.selectedAttachedEntry {
+            HStack(spacing: 6) {
+                switch attached {
+                case .agent(let entry):
+                    statusGlyph(entry.agent.status)
+                    Text(entry.title)
+                        .help("\(model.spaceName(deviceID: entry.device.id, workspaceID: entry.agent.workspaceID)) · \(entry.device.name)")
+                case .terminal(let entry):
+                    Image(systemName: "terminal")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Theme.textTertiary)
+                    Text(entry.title)
+                        .help("\(model.spaceName(deviceID: entry.device.id, workspaceID: entry.pane.workspaceID)) · \(entry.device.name)")
+                }
+            }
+            .font(.system(size: 13, weight: .medium))
+            .foregroundStyle(Theme.text)
+            .lineLimit(1)
+            .frame(maxWidth: 160, alignment: .leading)
+        }
     }
 
     @ViewBuilder
@@ -609,11 +668,6 @@ struct DetailView: View {
     @ViewBuilder
     private var terminal: some View {
         VStack(spacing: 0) {
-            if let space = model.tabBarSpace, model.selectedShellID == nil, !model.isFileManagerActive,
-               !model.tabs(in: space).isEmpty,
-               !(hideSingleTabBar && model.tabs(in: space).count == 1) {
-                SpaceTabBar(model: model, space: space)
-            }
             DrawerSplit(
                 isOpen: model.visibleEditorDrawerID != nil,
                 ratio: $editorDrawerRatio

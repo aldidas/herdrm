@@ -9,29 +9,31 @@ struct SpaceTabBar: View {
     @State private var draggingTabID: String?
     @State private var tabDrop: (id: String, after: Bool)?
 
+    /// Widest a tab grows; tabs shrink evenly (and truncate) when the strip runs out of room.
+    private static let tabWidth: CGFloat = 190
+
     var body: some View {
         let tabs = model.tabs(in: space)
         let active = model.activeTabID(in: space)
-        HStack(spacing: 0) {
-            ForEach(tabs) { tab in
-                tabCell(tab, selected: tab.tabID == active, canClose: tabs.count > 1)
+        HStack(spacing: 8) {
+            HStack(spacing: 2) {
+                ForEach(tabs) { tab in
+                    tabCell(tab, selected: tab.tabID == active, canClose: tabs.count > 1)
+                }
             }
+            .padding(3)
+            .frame(maxWidth: Self.tabWidth * CGFloat(tabs.count) + 6)
+            .background(Theme.tabStripBackground, in: Capsule())
+            .overlay(Capsule().strokeBorder(Theme.hairline, lineWidth: 1))
             Button {
                 model.newTab(in: space)
             } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 12))
-                    .foregroundStyle(Theme.textTertiary)
-                    .frame(width: 30, height: 30)
-                    .contentShape(Rectangle())
+                TitlebarIconLabel(systemName: "plus")
             }
             .buttonStyle(.plain)
             .help("New Tab")
             Spacer(minLength: 0)
         }
-        .frame(height: 32)
-        .background(Theme.statusBarBackground)
-        .overlay(alignment: .bottom) { Rectangle().fill(Theme.hairline).frame(height: 1) }
         .onChange(of: model.tabToRename) { _, tab in
             if let tab { renameText = tab.customLabel ?? tab.label }
         }
@@ -56,12 +58,13 @@ struct SpaceTabBar: View {
             if canClose { Color.clear.frame(width: 9, height: 9) }
         }
         .padding(.horizontal, 12)
-        .frame(height: 32)
-        .background(selected ? Theme.terminalBackground : Color.clear)
+        .frame(maxWidth: Self.tabWidth)
+        .frame(height: 30)
+        .selectedTabGlass(selected)
         .opacity(draggingTabID == tab.tabID ? 0.4 : 1)
         .overlay(alignment: (tabDrop?.after ?? false) ? .trailing : .leading) {
             if tabDrop?.id == tab.tabID {
-                Rectangle().fill(Theme.accent).frame(width: 2)
+                Capsule().fill(Theme.accent).frame(width: 2, height: 18)
                     .transaction { $0.animation = nil }
             }
         }
@@ -103,7 +106,7 @@ struct SpaceTabBar: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .padding(.trailing, 7)
+                .padding(.trailing, 8)
                 .help("Close Tab")
             }
         }
@@ -132,6 +135,23 @@ struct SpaceTabBar: View {
             do { try await service.renameTab(tabID: tab.tabID, label: label) } catch {
                 model.actionError = error.localizedDescription
             }
+        }
+    }
+}
+
+extension View {
+    /// Highlight for the selected titlebar tab: a Liquid Glass capsule on
+    /// macOS 26+, a flat wash before that.
+    @ViewBuilder
+    func selectedTabGlass(_ selected: Bool) -> some View {
+        if #available(macOS 26, *) {
+            if selected {
+                glassEffect(.regular.interactive(), in: .capsule)
+            } else {
+                self
+            }
+        } else {
+            background(selected ? Theme.itemWashSelected : Color.clear, in: Capsule())
         }
     }
 }
