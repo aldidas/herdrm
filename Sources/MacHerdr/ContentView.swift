@@ -459,7 +459,9 @@ struct DetailView: View {
         HStack(spacing: 8) {
             if sidebarCollapsed {
                 // The rail sits under the traffic lights, so only the rest needs clearing.
-                Spacer().frame(width: TitlebarMetrics.trafficLightClearance - SidebarRail.width)
+                // Subtract the strip's leading padding (10) and the HStack spacing (8) too,
+                // so the toggle lands at the same x as the expanded sidebar's toggle.
+                Spacer().frame(width: TitlebarMetrics.trafficLightClearance - SidebarRail.width - 10 - 8)
                 TitlebarIconButton(systemName: "sidebar.left", help: "Show Sidebar (⌘B)") {
                     sidebarCollapsed = false
                 }
