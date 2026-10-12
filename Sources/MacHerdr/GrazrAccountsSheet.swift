@@ -52,7 +52,6 @@ struct GrazrAccountsSheet: View {
                 }
                 Button("Done") { dismiss() }
                     .buttonStyle(.borderedProminent)
-                    .tint(Theme.accent)
                     .keyboardShortcut(.defaultAction)
             }
             .padding(.horizontal, 16)

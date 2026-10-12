@@ -1118,7 +1118,6 @@ struct AddDeviceSheet: View {
                     dismiss()
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(Theme.accent)
                 .keyboardShortcut(.defaultAction)
                 .disabled(!canAdd)
             }
@@ -1198,7 +1197,6 @@ struct SSHAuthenticationSheet: View {
                     model.saveSSHPassword(password, for: request)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(Theme.accent)
                 .keyboardShortcut(.defaultAction)
                 .disabled(password.isEmpty)
             }
@@ -1340,7 +1338,6 @@ struct NewTerminalSheet: View {
                     dismiss()
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(Theme.accent)
                 .keyboardShortcut(.defaultAction)
             }
             .padding(.horizontal, 16)
@@ -1520,7 +1517,6 @@ struct NewAgentSheet: View {
                     dismiss()
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(Theme.accent)
                 .keyboardShortcut(.defaultAction)
                 .disabled(!kinds.contains(kind))
             }
@@ -1617,7 +1613,6 @@ struct RenameSpaceSheet: View {
                     dismiss()
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(Theme.accent)
                 .keyboardShortcut(.defaultAction)
                 .disabled(trimmedName.isEmpty || trimmedName == entry.workspace.label)
             }
@@ -1669,7 +1664,6 @@ struct RenameAgentSheet: View {
                     dismiss()
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(Theme.accent)
                 .keyboardShortcut(.defaultAction)
                 .disabled(trimmedName.isEmpty || trimmedName == entry.title)
             }
@@ -1721,7 +1715,6 @@ struct RenameTerminalSheet: View {
                     dismiss()
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(Theme.accent)
                 .keyboardShortcut(.defaultAction)
                 .disabled(trimmedName.isEmpty || trimmedName == entry.title)
             }
@@ -1777,7 +1770,6 @@ struct EditDeviceSheet: View {
                     dismiss()
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(Theme.accent)
                 .keyboardShortcut(.defaultAction)
                 .disabled(target.trimmingCharacters(in: .whitespaces).isEmpty)
             }
