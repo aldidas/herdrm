@@ -554,6 +554,7 @@ struct AppearanceSettingsView: View {
     @AppStorage("app.theme") private var themePreference = "system"
     @AppStorage(AppLanguage.defaultsKey) private var language = AppLanguage.system.rawValue
     @AppStorage("tabs.hideWhenSingle") private var hideSingleTabBar = true
+    @AppStorage(Theme.matchWindowKey) private var matchWindowToTheme = true
 
     var body: some View {
         Form {
@@ -569,6 +570,8 @@ struct AppearanceSettingsView: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             Toggle("Hide the tab bar when only one tab is left", isOn: $hideSingleTabBar)
+
+            Toggle("Match window background with terminal theme", isOn: $matchWindowToTheme)
 
             LabeledContent("Language") {
                 HStack(spacing: 8) {

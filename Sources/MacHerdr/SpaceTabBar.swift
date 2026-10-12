@@ -5,6 +5,9 @@ import SwiftUI
 struct SpaceTabBar: View {
     @ObservedObject var model: AppModel
     let space: SpaceRef
+    // Re-render when the terminal theme (and so Theme.tabStripBackground) changes.
+    @AppStorage(TerminalThemeSetting.key) private var terminalThemeName = ""
+    @AppStorage(Theme.matchWindowKey) private var matchWindowToTheme = true
     @State private var renameText = ""
     @State private var draggingTabID: String?
     @State private var tabDrop: (id: String, after: Bool)?

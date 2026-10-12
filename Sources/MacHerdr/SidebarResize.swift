@@ -18,6 +18,9 @@ enum SidebarWidth {
 /// 1pt; the grab area is 7pt wide (as in SplitContainer) and straddles it, so the parent must keep
 /// this view above the detail pane (`.zIndex`).
 struct SidebarResizeDivider: View {
+    // Re-render when the terminal theme (and so Theme.contentBackground) changes.
+    @AppStorage(TerminalThemeSetting.key) private var terminalThemeName = ""
+    @AppStorage(Theme.matchWindowKey) private var matchWindowToTheme = true
     @Binding var width: Double
     let collapsed: Bool
     /// A collapsed sidebar that leaves a rail still needs its edge line.

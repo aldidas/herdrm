@@ -5,6 +5,9 @@ import StickySectionHeaders
 
 struct SidebarView: View {
     @ObservedObject var model: AppModel
+    // Re-render when the terminal theme (and so Theme.contentBackground) changes.
+    @AppStorage(TerminalThemeSetting.key) private var terminalThemeName = ""
+    @AppStorage(Theme.matchWindowKey) private var matchWindowToTheme = true
     @Binding var collapsed: Bool
     var width: CGFloat = SidebarWidth.defaultWidth
     @State private var deviceButtonHovered = false

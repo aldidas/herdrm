@@ -4,6 +4,12 @@ import SwiftUI
 
 /// Design tokens from the MacHerdr design canvas (waku-derived), light/dark adaptive.
 enum Theme {
+    /// Settings → Appearance: tint the window chrome with the terminal theme's background.
+    static let matchWindowKey = "appearance.matchWindowToTheme"
+    static var matchesWindowToTheme: Bool {
+        UserDefaults.standard.object(forKey: matchWindowKey) as? Bool ?? true
+    }
+
     private static func dynamic(_ light: NSColor, _ dark: NSColor) -> Color {
         Color(nsColor: NSColor(name: nil) { appearance in
             appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light
@@ -42,7 +48,6 @@ enum Theme {
     // surfaces
     static let itemWash = dynamic(hex(0x141414, alpha: 0.06), hex(0xF0F0F0, alpha: 0.06))
     static let itemWashSelected = dynamic(hex(0x141414, alpha: 0.07), hex(0xF0F0F0, alpha: 0.07))
-    static let contentBackground = dynamic(hex(0xF6F6F6), hex(0x181818))
     /// Follows the chosen Ghostty theme's background; callers re-render when
     /// `terminal.theme` changes, which re-resolves this.
     static var terminalBackground: Color {
@@ -51,13 +56,28 @@ enum Theme {
         }
         return builtInTerminalBackground
     }
+    /// Window chrome (titlebar, sidebar, gutters around the terminal) matches the
+    /// terminal background so the window reads as one surface.
+    static var contentBackground: Color {
+        matchesWindowToTheme ? terminalBackground : defaultContentBackground
+    }
+    private static let defaultContentBackground = dynamic(hex(0xF6F6F6), hex(0x181818))
     private static let builtInTerminalBackground = dynamic(hex(0xFFFFFF), hex(0x101012))
     /// Solid (not vibrancy) so the sidebar never shows the desktop through it.
     /// Same surface as the titlebar, so the sidebar and titlebar read as one.
-    static let sidebarBackground = contentBackground
+    static var sidebarBackground: Color { contentBackground }
     /// Titlebar tab strip: lighter than `contentBackground` (the titlebar) in dark mode,
     /// darker in light mode.
-    static let tabStripBackground = dynamic(hex(0xE6E6E8), hex(0x262628))
+    /// Derived from the terminal background so it tracks the theme: nudged toward
+    /// white on dark backgrounds, toward black on light ones.
+    static var tabStripBackground: Color {
+        let base = matchesWindowToTheme ? TerminalThemeSetting.backgroundColor() : nil
+        guard let base else { return dynamic(hex(0xE6E6E8), hex(0x262628)) }
+        let rgb = base.usingColorSpace(.sRGB) ?? base
+        let luma = 0.299 * rgb.redComponent + 0.587 * rgb.greenComponent + 0.114 * rgb.blueComponent
+        let target: NSColor = luma < 0.5 ? .white : .black
+        return Color(nsColor: base.blended(withFraction: luma < 0.5 ? 0.07 : 0.06, of: target) ?? base)
+    }
     static let statusBarBackground = dynamic(hex(0xF1F1F2), hex(0x141416))
     static let sidebarBorder = dynamic(hex(0xD9D9D9), hex(0x292929))
     static let hairline = dynamic(hex(0x000000, alpha: 0.08), hex(0xFFFFFF, alpha: 0.06))

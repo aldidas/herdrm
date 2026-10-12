@@ -5,6 +5,9 @@ import SwiftUI
 /// narrow strip of numbered status rings. Spaces on top, then every agent in
 /// scope (as the sidebar's Agents section lists them). Clicking a row selects it without expanding.
 struct SidebarRail: View {
+    // Re-render when the terminal theme (and so Theme.contentBackground) changes.
+    @AppStorage(TerminalThemeSetting.key) private var terminalThemeName = ""
+    @AppStorage(Theme.matchWindowKey) private var matchWindowToTheme = true
     static let width: CGFloat = 36
 
     @ObservedObject var model: AppModel

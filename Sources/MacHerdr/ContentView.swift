@@ -670,6 +670,7 @@ struct DetailView: View {
     @AppStorage(TerminalDefaults.fontWeightKey) private var terminalFontWeight = TerminalDefaults.defaultFontWeight
     @AppStorage(TerminalDefaults.lineSpacingKey) private var terminalLineSpacing = TerminalDefaults.defaultLineSpacing
     @AppStorage(TerminalThemeSetting.key) private var terminalThemeName = ""
+    @AppStorage(Theme.matchWindowKey) private var matchWindowToTheme = true
     @AppStorage("terminal.mouseReporting") private var terminalMouseReporting = true
     @AppStorage("terminal.copyOnSelect") private var terminalCopyOnSelect = true
     @AppStorage("tabs.hideWhenSingle") private var hideSingleTabBar = true
