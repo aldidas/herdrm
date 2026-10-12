@@ -356,6 +356,8 @@ enum DetailMetrics {
     /// tab strip and the terminal (titlebar 52pt, strip 36pt).
     static let terminalMargin: CGFloat = 8
     static let terminalCornerRadius: CGFloat = 10
+    /// Glass rim around the terminal on macOS 26+; the outer slab radius is concentric.
+    static let glassInset: CGFloat = 1.5
 }
 
 struct DetailView: View {
@@ -371,8 +373,7 @@ struct DetailView: View {
                 .zIndex(1)
             detailContent
                 .clipShape(RoundedRectangle(cornerRadius: DetailMetrics.terminalCornerRadius, style: .continuous))
-                .padding(.trailing, DetailMetrics.terminalMargin)
-                .padding(.bottom, DetailMetrics.terminalMargin)
+                .terminalPanelGlass()
                 // Losing the selected agent tears the SplitContainer down without
                 // resetting the axis, which would leave the same phantom split.
                 //

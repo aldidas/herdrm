@@ -140,6 +140,30 @@ struct SpaceTabBar: View {
 }
 
 extension View {
+    /// Liquid Glass slab around the (already clipped) terminal on macOS 26+: the
+    /// terminal stays opaque inside a few points of glass rim. Before that, the
+    /// plain margin to the right and bottom.
+    @ViewBuilder
+    func terminalPanelGlass() -> some View {
+        let inset = DetailMetrics.glassInset
+        let margin = DetailMetrics.terminalMargin
+        if #available(macOS 26, *) {
+            padding(inset)
+                .glassEffect(
+                    .regular.tint(Theme.terminalBackground.opacity(0.9)),
+                    in: RoundedRectangle(
+                        cornerRadius: DetailMetrics.terminalCornerRadius + inset,
+                        style: .continuous
+                    )
+                )
+                .padding(.trailing, margin - inset)
+                .padding(.bottom, margin - inset)
+        } else {
+            padding(.trailing, margin)
+                .padding(.bottom, margin)
+        }
+    }
+
     /// Highlight for the selected titlebar tab: a Liquid Glass capsule on
     /// macOS 26+, a flat wash before that.
     @ViewBuilder
