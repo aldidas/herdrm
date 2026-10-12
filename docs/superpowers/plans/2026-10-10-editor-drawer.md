@@ -18,7 +18,7 @@
 - Files reach a running nvim over its RPC socket, never by typing into the pty.
 - Socket path: `$TMPDIR/macherdr-nvim-<8 hex>.sock`; always removed when the session ends; stale ones removed at app start.
 - The terminal area keeps one structural position (never branch the view tree to show the drawer) — see `SplitContainer.swift` header.
-- Never push to `missuo/herdrm`; commits stay local until the user asks to push to `aldidas/herdrm`.
+- Never push to `missuo/herdrm`; commits stay local until the user asks to push to `aldidas/macherdr`.
 - Commit messages end with `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`.
 
 ## Review Focus

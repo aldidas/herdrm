@@ -13,7 +13,7 @@ branch disagree, my branch's behavior wins; adopt upstream's change only where i
 break mine. Judge every verdict by "could this break my branch?", not "does git merge cleanly?".
 
 Never merge into `main` or push anywhere unless the
-user explicitly asks afterwards. Remote git work goes to the fork `origin` (aldidas/herdrm) only.
+user explicitly asks afterwards. Remote git work goes to the fork `origin` (aldidas/macherdr) only.
 
 ## Fork goal and policy
 
