@@ -10,7 +10,6 @@ struct SidebarView: View {
     @AppStorage(Theme.matchWindowKey) private var matchWindowToTheme = true
     @Binding var collapsed: Bool
     var width: CGFloat = SidebarWidth.defaultWidth
-    @State private var deviceButtonHovered = false
     @State private var draggingSpaceID: String?
     @State private var spaceDrop: (id: String, after: Bool)?
     @State private var draggingAgentID: String?
@@ -375,36 +374,16 @@ struct SidebarView: View {
                     Circle()
                         .fill(connectionDotColor)
                         .frame(width: 6, height: 6)
+                    Spacer(minLength: 0)
                     Image(systemName: "chevron.up.chevron.down")
                         .font(.system(size: 8.5, weight: .semibold))
                         .foregroundStyle(Theme.textGhost)
                 }
-                .padding(.horizontal, 8)
-                .frame(height: 28)
-                .contentShape(RoundedRectangle(cornerRadius: 6))
-            }
-            .buttonStyle(.plain)
-            .background(
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(deviceButtonHovered || model.showDevicePanel
-                          ? AnyShapeStyle(Theme.itemWashSelected)
-                          : AnyShapeStyle(Theme.itemWash))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 6)
-                    .strokeBorder(Theme.hairline, lineWidth: deviceButtonHovered ? 1 : 0)
-            )
-            .scaleEffect(deviceButtonHovered ? 1.04 : 1.0)
-            .animation(.spring(response: 0.28, dampingFraction: 0.55), value: deviceButtonHovered)
-            .onHover { deviceButtonHovered = $0 }
-
-            Spacer()
-
-            SettingsLink {
-                Image(systemName: "gearshape")
-                    .font(.system(size: 12.5))
-                    .foregroundStyle(Theme.textTertiary)
-                    .frame(width: 26, height: 26)
+                .padding(.horizontal, 12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(height: 30)
+                .selectedTabGlass(true)
+                .contentShape(Capsule())
             }
             .buttonStyle(.plain)
             .focusEffectDisabled()
