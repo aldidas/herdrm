@@ -166,7 +166,12 @@ private struct WindowTitlebarInteraction: NSViewRepresentable {
         WindowTitlebarInteractionView()
     }
 
-    func updateNSView(_: NSView, context _: Context) {}
+    func updateNSView(_ view: NSView, context _: Context) {
+        let appearance = Theme.chromeAppearance
+        DispatchQueue.main.async { [weak view] in
+            view?.window?.appearance = appearance
+        }
+    }
 }
 
 private final class WindowTitlebarInteractionView: NSView {

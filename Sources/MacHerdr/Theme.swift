@@ -84,6 +84,16 @@ enum Theme {
             return Color(nsColor: base)
         }
     }
+    /// Window appearance that keeps system text/controls legible on the chrome: a
+    /// light terminal theme under a dark app (or the reverse) would otherwise leave
+    /// white titles on a light surface. nil = follow the app appearance.
+    static var chromeAppearance: NSAppearance? {
+        guard windowBackgroundMode != .off,
+              let base = TerminalThemeSetting.backgroundColor() else { return nil }
+        let rgb = base.usingColorSpace(.sRGB) ?? base
+        let luma = 0.299 * rgb.redComponent + 0.587 * rgb.greenComponent + 0.114 * rgb.blueComponent
+        return NSAppearance(named: luma < 0.5 ? .darkAqua : .aqua)
+    }
     /// Terminal background for the chrome, darkened in `.darker` mode (more on dark
     /// themes, where a small shift is invisible); nil when the chrome doesn't follow it.
     private static var windowBase: NSColor? {
