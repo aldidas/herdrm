@@ -2,12 +2,29 @@ import AppKit
 import HerdrKit
 import SwiftUI
 
+/// Settings → Appearance: how the window chrome relates to the terminal background.
+enum WindowBackgroundMode: String, CaseIterable, Identifiable {
+    case off, match, darker
+    var id: String { rawValue }
+}
+
 /// Design tokens from the MacHerdr design canvas (waku-derived), light/dark adaptive.
 enum Theme {
     /// Settings → Appearance: tint the window chrome with the terminal theme's background.
-    static let matchWindowKey = "appearance.matchWindowToTheme"
-    static var matchesWindowToTheme: Bool {
-        UserDefaults.standard.object(forKey: matchWindowKey) as? Bool ?? true
+    static let windowBackgroundKey = "appearance.windowBackground"
+    static let defaultWindowBackgroundMode = WindowBackgroundMode.match.rawValue
+    /// Pre-3-mode Bool key: true → `.match`, false → `.off`.
+    private static let legacyMatchWindowKey = "appearance.matchWindowToTheme"
+    static var windowBackgroundMode: WindowBackgroundMode {
+        let defaults = UserDefaults.standard
+        if let raw = defaults.string(forKey: windowBackgroundKey),
+           let mode = WindowBackgroundMode(rawValue: raw) {
+            return mode
+        }
+        if let legacy = defaults.object(forKey: legacyMatchWindowKey) as? Bool {
+            return legacy ? .match : .off
+        }
+        return .match
     }
 
     private static func dynamic(_ light: NSColor, _ dark: NSColor) -> Color {
@@ -59,7 +76,28 @@ enum Theme {
     /// Window chrome (titlebar, sidebar, gutters around the terminal) matches the
     /// terminal background so the window reads as one surface.
     static var contentBackground: Color {
-        matchesWindowToTheme ? terminalBackground : defaultContentBackground
+        switch windowBackgroundMode {
+        case .off: return defaultContentBackground
+        case .match: return terminalBackground
+        case .darker:
+            guard let base = windowBase else { return defaultContentBackground }
+            return Color(nsColor: base)
+        }
+    }
+    /// Terminal background for the chrome, darkened in `.darker` mode (more on dark
+    /// themes, where a small shift is invisible); nil when the chrome doesn't follow it.
+    private static var windowBase: NSColor? {
+        let mode = windowBackgroundMode
+        guard mode != .off else { return nil }
+        let base = TerminalThemeSetting.backgroundColor()
+            ?? NSColor(name: nil) { appearance in
+                appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                    ? hex(0x101012) : hex(0xFFFFFF)
+            }
+        guard mode == .darker else { return base }
+        let rgb = base.usingColorSpace(.sRGB) ?? base
+        let luma = 0.299 * rgb.redComponent + 0.587 * rgb.greenComponent + 0.114 * rgb.blueComponent
+        return rgb.blended(withFraction: luma < 0.5 ? 0.25 : 0.06, of: .black) ?? rgb
     }
     private static let defaultContentBackground = dynamic(hex(0xF6F6F6), hex(0x181818))
     private static let builtInTerminalBackground = dynamic(hex(0xFFFFFF), hex(0x101012))
@@ -71,7 +109,7 @@ enum Theme {
     /// Derived from the terminal background so it tracks the theme: nudged toward
     /// white on dark backgrounds, toward black on light ones.
     static var tabStripBackground: Color {
-        let base = matchesWindowToTheme ? TerminalThemeSetting.backgroundColor() : nil
+        let base = windowBase
         guard let base else { return dynamic(hex(0xE6E6E8), hex(0x262628)) }
         let rgb = base.usingColorSpace(.sRGB) ?? base
         let luma = 0.299 * rgb.redComponent + 0.587 * rgb.greenComponent + 0.114 * rgb.blueComponent

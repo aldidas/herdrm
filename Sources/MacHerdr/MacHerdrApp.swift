@@ -554,7 +554,7 @@ struct AppearanceSettingsView: View {
     @AppStorage("app.theme") private var themePreference = "system"
     @AppStorage(AppLanguage.defaultsKey) private var language = AppLanguage.system.rawValue
     @AppStorage("tabs.hideWhenSingle") private var hideSingleTabBar = true
-    @AppStorage(Theme.matchWindowKey) private var matchWindowToTheme = true
+    @AppStorage(Theme.windowBackgroundKey) private var windowBackgroundMode = Theme.defaultWindowBackgroundMode
 
     var body: some View {
         Form {
@@ -571,7 +571,11 @@ struct AppearanceSettingsView: View {
 
             Toggle("Hide the tab bar when only one tab is left", isOn: $hideSingleTabBar)
 
-            Toggle("Match window background with terminal theme", isOn: $matchWindowToTheme)
+            Picker("Window background", selection: $windowBackgroundMode) {
+                Text("Default").tag(WindowBackgroundMode.off.rawValue)
+                Text("Match terminal theme").tag(WindowBackgroundMode.match.rawValue)
+                Text("Darker than terminal theme").tag(WindowBackgroundMode.darker.rawValue)
+            }
 
             LabeledContent("Language") {
                 HStack(spacing: 8) {

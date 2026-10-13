@@ -7,7 +7,7 @@ import SwiftUI
 struct SidebarRail: View {
     // Re-render when the terminal theme (and so Theme.contentBackground) changes.
     @AppStorage(TerminalThemeSetting.key) private var terminalThemeName = ""
-    @AppStorage(Theme.matchWindowKey) private var matchWindowToTheme = true
+    @AppStorage(Theme.windowBackgroundKey) private var windowBackgroundMode = Theme.defaultWindowBackgroundMode
     static let width: CGFloat = 36
 
     @ObservedObject var model: AppModel

@@ -20,7 +20,7 @@ enum SidebarWidth {
 struct SidebarResizeDivider: View {
     // Re-render when the terminal theme (and so Theme.contentBackground) changes.
     @AppStorage(TerminalThemeSetting.key) private var terminalThemeName = ""
-    @AppStorage(Theme.matchWindowKey) private var matchWindowToTheme = true
+    @AppStorage(Theme.windowBackgroundKey) private var windowBackgroundMode = Theme.defaultWindowBackgroundMode
     @Binding var width: Double
     let collapsed: Bool
     /// A collapsed sidebar that leaves a rail still needs its edge line.
