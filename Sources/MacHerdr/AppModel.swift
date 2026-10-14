@@ -984,6 +984,12 @@ final class AppModel: ObservableObject {
         if let entry = selectedAttachedEntry { AttachViewRegistry.focus(entry.id) }
     }
 
+    /// A link inside the preview pointed at another local markdown/HTML file.
+    func navigatePreview(to path: String) {
+        guard let key = editorDrawerContext else { return }
+        previews[key]?.path = path
+    }
+
     /// ⌘K on a markdown/HTML file: render it in the drawer slot instead of nvim.
     private func openPreview(path: String, key: EditorDrawerKey) {
         if var existing = previews[key] {

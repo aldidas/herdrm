@@ -28,7 +28,7 @@ struct PreviewDrawerStack: View {
     var body: some View {
         ZStack(alignment: .topTrailing) {
             if let session = model.visiblePreview {
-                PreviewWebView(path: session.path, dark: colorScheme == .dark)
+                PreviewWebView(path: session.path, dark: colorScheme == .dark) { model.navigatePreview(to: $0) }
                     .id(session.id)
                 Button { model.closePreview() } label: {
                     Image(systemName: "xmark.circle.fill")
@@ -47,6 +47,7 @@ struct PreviewDrawerStack: View {
 private struct PreviewWebView: NSViewRepresentable {
     let path: String
     let dark: Bool
+    let onOpen: (String) -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
@@ -59,6 +60,7 @@ private struct PreviewWebView: NSViewRepresentable {
     }
 
     func updateNSView(_ view: WKWebView, context: Context) {
+        context.coordinator.onOpen = onOpen
         context.coordinator.show(path: path, dark: dark)
     }
 
@@ -69,6 +71,7 @@ private struct PreviewWebView: NSViewRepresentable {
     @MainActor
     final class Coordinator: NSObject, WKNavigationDelegate {
         weak var webView: WKWebView?
+        var onOpen: (String) -> Void = { _ in }
         private var path: String?
         private var dark = false
         private var modified: Date?
@@ -144,12 +147,48 @@ private struct PreviewWebView: NSViewRepresentable {
             decidePolicyFor action: WKNavigationAction,
             decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
         ) {
-            if action.navigationType == .linkActivated, let url = action.request.url,
-               ["http", "https", "mailto"].contains(url.scheme ?? "") {
-                NSWorkspace.shared.open(url)
+            guard let url = action.request.url, action.targetFrame?.isMainFrame ?? true else {
+                decisionHandler(.allow)
+                return
+            }
+            let scheme = url.scheme?.lowercased() ?? ""
+            if scheme == "file" {
+                guard action.navigationType == .linkActivated else {
+                    decisionHandler(.allow)
+                    return
+                }
+                let target = url.standardizedFileURL.path
+                if target == path.map({ URL(fileURLWithPath: $0).standardizedFileURL.path }) {
+                    decisionHandler(.allow) // in-page anchor
+                } else if !FileManager.default.fileExists(atPath: target) {
+                    decisionHandler(.cancel)
+                    notify("File not found", target)
+                } else if PreviewSession.handles(target) {
+                    decisionHandler(.cancel)
+                    onOpen(target) // re-renders through the viewer, never the raw file
+                } else {
+                    decisionHandler(.cancel)
+                }
+            } else if ["about", "data", "blob", "javascript"].contains(scheme) {
+                decisionHandler(.allow)
+            } else if action.navigationType == .linkActivated,
+                      ["http", "https", "mailto"].contains(scheme) {
+                NSWorkspace.shared.open(url) // outbound links leave the viewer
                 decisionHandler(.cancel)
             } else {
-                decisionHandler(.allow)
+                decisionHandler(.cancel) // redirects / scripted navigation away
+            }
+        }
+
+        private func notify(_ title: String, _ message: String) {
+            let alert = NSAlert()
+            alert.alertStyle = .warning
+            alert.messageText = title
+            alert.informativeText = message
+            if let window = webView?.window {
+                alert.beginSheetModal(for: window)
+            } else {
+                alert.runModal()
             }
         }
     }
