@@ -695,12 +695,15 @@ struct DetailView: View {
     private var terminal: some View {
         VStack(spacing: 0) {
             DrawerSplit(
-                isOpen: model.visibleEditorDrawerID != nil,
+                isOpen: model.visibleEditorDrawerID != nil || model.visiblePreview != nil,
                 ratio: $editorDrawerRatio
             ) {
                 terminalStack
             } drawer: {
-                EditorDrawerStack(model: model)
+                ZStack {
+                    EditorDrawerStack(model: model)
+                    PreviewDrawerStack(model: model)
+                }
             }
         }
     }

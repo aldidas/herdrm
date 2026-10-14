@@ -1,0 +1,59 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    font: 14px/1.6 -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+    max-width: 860px; margin: 0 auto; padding: 20px 28px 60px;
+    word-wrap: break-word;
+  }
+  h1, h2 { border-bottom: 1px solid rgba(128,128,128,.3); padding-bottom: .3em; }
+  h1, h2, h3, h4 { line-height: 1.25; margin: 1.4em 0 .6em; }
+  a { color: #0a84ff; }
+  img, svg { max-width: 100%; height: auto; }
+  code, pre { font: 12.5px/1.5 ui-monospace, "SF Mono", Menlo, monospace; }
+  code { background: rgba(128,128,128,.15); padding: .15em .35em; border-radius: 4px; }
+  pre { background: rgba(128,128,128,.12); padding: 12px 14px; border-radius: 8px; overflow-x: auto; }
+  pre code { background: none; padding: 0; }
+  pre.mermaid { background: none; text-align: center; }
+  blockquote { margin: 0; padding: 0 1em; border-left: 3px solid rgba(128,128,128,.4); opacity: .85; }
+  table { border-collapse: collapse; }
+  th, td { border: 1px solid rgba(128,128,128,.35); padding: 5px 10px; }
+  hr { border: 0; border-top: 1px solid rgba(128,128,128,.3); }
+  li.task { list-style: none; margin-left: -1.2em; }
+</style>
+<script src="marked.min.js"></script>
+<script src="mermaid.min.js"></script>
+</head>
+<body><div id="content"></div>
+<script>
+  const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  marked.use({
+    gfm: true,
+    renderer: {
+      code({ text, lang }) {
+        if ((lang || "").trim() === "mermaid") return '<pre class="mermaid">' + esc(text) + "</pre>";
+        return false;
+      }
+    }
+  });
+
+  // Called from Swift on load, on file change and on appearance change.
+  async function render(markdown, dark, baseURL) {
+    document.documentElement.style.colorScheme = dark ? "dark" : "light";
+    let base = document.querySelector("base");
+    if (!base) { base = document.createElement("base"); document.head.appendChild(base); }
+    base.href = baseURL;
+    const y = window.scrollY;
+    document.getElementById("content").innerHTML = marked.parse(markdown);
+    window.scrollTo(0, y);
+    mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: dark ? "dark" : "default" });
+    try { await mermaid.run({ querySelector: "pre.mermaid" }); } catch (e) { console.error(e); }
+    window.scrollTo(0, y);
+  }
+</script>
+</body>
+</html>

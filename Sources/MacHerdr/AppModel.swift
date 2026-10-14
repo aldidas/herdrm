@@ -158,6 +158,8 @@ final class AppModel: ObservableObject {
     private let gitStatusProvider = GitStatusProvider()
     let repoFiles = RepoFiles()
     @Published var editorDrawers = EditorDrawerRegistry()
+    /// Markdown/HTML previews, one per tab, sharing the nvim drawer's slot.
+    @Published var previews: [EditorDrawerKey: PreviewSession] = [:]
 
     struct ActiveLayout: Equatable {
         let tabID: String
@@ -904,9 +906,16 @@ final class AppModel: ObservableObject {
         return selectedTabKey
     }
 
+    /// The preview to draw right now; while it shows, the nvim drawer stays hidden.
+    var visiblePreview: PreviewSession? {
+        guard let key = editorDrawerContext, let preview = previews[key], preview.isVisible
+        else { return nil }
+        return preview
+    }
+
     /// The drawer to draw right now.
     var visibleEditorDrawerID: UUID? {
-        guard let key = editorDrawerContext,
+        guard visiblePreview == nil, let key = editorDrawerContext,
               let session = editorDrawers.session(for: key), session.isVisible
         else { return nil }
         return session.id
@@ -916,6 +925,10 @@ final class AppModel: ObservableObject {
     /// nvim in the pane's directory when the tab has none).
     func toggleEditorDrawer() {
         guard let key = editorDrawerContext, let target = fileSearchTarget else { return }
+        if previews[key]?.isVisible == true {
+            closePreview()
+            return
+        }
         if let session = editorDrawers.session(for: key), session.isVisible {
             editorDrawers.hide(key)
             if let entry = selectedAttachedEntry { AttachViewRegistry.focus(entry.id) }
@@ -932,6 +945,11 @@ final class AppModel: ObservableObject {
     /// the drawer follows the selected pane's tab.
     func openFile(path: String, in space: SpaceRef, directory: String) {
         guard let key = editorDrawerContext else { return }
+        if PreviewSession.handles(path) {
+            openPreview(path: path, key: key)
+            return
+        }
+        previews[key]?.isVisible = false
         guard let existing = editorDrawers.session(for: key) else {
             launchDrawer(key: key, directory: directory, file: path)
             return
@@ -957,6 +975,25 @@ final class AppModel: ObservableObject {
                 actionError = String(localized: "nvim could not open the file: \(message)")
             }
         }
+    }
+
+    /// Hides the visible preview and returns the keyboard to the herdr pane.
+    func closePreview() {
+        guard let key = editorDrawerContext else { return }
+        previews[key]?.isVisible = false
+        if let entry = selectedAttachedEntry { AttachViewRegistry.focus(entry.id) }
+    }
+
+    /// ⌘K on a markdown/HTML file: render it in the drawer slot instead of nvim.
+    private func openPreview(path: String, key: EditorDrawerKey) {
+        if var existing = previews[key] {
+            existing.path = path
+            existing.isVisible = true
+            previews[key] = existing
+        } else {
+            previews[key] = PreviewSession(key: key, path: path, isVisible: true)
+        }
+        if let entry = selectedAttachedEntry { AttachViewRegistry.focus(entry.id) }
     }
 
     private func launchDrawer(key: EditorDrawerKey, directory: String, file: String?) {
@@ -1598,6 +1635,8 @@ final class AppModel: ObservableObject {
                 for removed in editorDrawers.reconcile(deviceID: deviceID, liveTabIDs: Set(tabs.map(\.tabID))) {
                     try? FileManager.default.removeItem(atPath: removed.socketPath)
                 }
+                let live = Set(tabs.map(\.tabID))
+                previews = previews.filter { $0.key.deviceID != deviceID || live.contains($0.key.tabID) }
             }
             let paneIDs = Set((snapshot.panes ?? []).map(\.paneID))
                 .union(snapshot.agents.map(\.paneID))
