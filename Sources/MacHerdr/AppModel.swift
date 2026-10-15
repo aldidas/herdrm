@@ -981,9 +981,30 @@ final class AppModel: ObservableObject {
     /// only that split and the sidebar steps aside.
     var isSplitZoomed: Bool {
         if visiblePreview?.isZoomed == true { return true }
+        if !isFileManagerActive, localZoomKey != nil, localZoomKey == currentZoomKey { return true }
         return selectedShellID == nil && !isFileManagerActive && selectedAttachedEntry != nil
             && activeLayout?.zoomed == true
     }
+
+    /// App-side zoom for a terminal herdr cannot zoom (a single-pane tab or a standalone
+    /// shell): it only hides the sidebar. Keyed on the selection, so switching away
+    /// and back to another terminal never inherits it.
+    @Published private var localZoomKey: String?
+
+    private var currentZoomKey: String? {
+        if let shell = selectedShellID { return "shell-\(shell)" }
+        return selectedPane.map { "pane-\($0.deviceID)-\($0.paneID)" }
+    }
+
+    private func toggleLocalZoom() {
+        guard !isFileManagerActive, let key = currentZoomKey else { return }
+        localZoomKey = localZoomKey == key ? nil : key
+    }
+
+    /// The preview holds the keyboard, so the terminal beside it dims.
+    @Published var previewHasKeyboard = false
+
+    var dimsTerminalForPreview: Bool { visiblePreview != nil && previewHasKeyboard }
 
     func togglePreviewZoom() {
         guard let key = editorDrawerContext, previews[key]?.isVisible == true else { return }
@@ -995,6 +1016,7 @@ final class AppModel: ObservableObject {
         guard let key = editorDrawerContext else { return }
         previews[key]?.isVisible = false
         previews[key]?.isZoomed = false
+        previewHasKeyboard = false
         if let entry = selectedAttachedEntry { AttachViewRegistry.focus(entry.id) }
     }
 
@@ -1101,6 +1123,10 @@ final class AppModel: ObservableObject {
         case .zoom:
             if visiblePreview != nil, PreviewZoom.previewHasFocus || PreviewFinder.shared.isVisible {
                 togglePreviewZoom() // the focused split is the preview, not a herdr pane
+                return
+            }
+            if selectedShellID != nil || activeLayout == nil {
+                toggleLocalZoom() // nothing for herdr to zoom: single pane or app-owned shell
                 return
             }
             guard let selected = selectedPane, let device = device(selected.deviceID) else { return }

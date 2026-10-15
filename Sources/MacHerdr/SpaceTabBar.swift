@@ -147,7 +147,7 @@ extension View {
     /// terminal stays opaque inside a few points of glass rim. Before that, the
     /// plain margin to the right and bottom.
     @ViewBuilder
-    func terminalPanelGlass() -> some View {
+    func terminalPanelGlass(leadingMargin: Bool = false) -> some View {
         let inset = DetailMetrics.glassInset
         let margin = DetailMetrics.terminalMargin
         if #available(macOS 26, *) {
@@ -159,10 +159,12 @@ extension View {
                         style: .continuous
                     )
                 )
+                .padding(.leading, leadingMargin ? margin - inset : 0)
                 .padding(.trailing, margin - inset)
                 .padding(.bottom, margin - inset)
         } else {
-            padding(.trailing, margin)
+            padding(.leading, leadingMargin ? margin : 0)
+                .padding(.trailing, margin)
                 .padding(.bottom, margin)
         }
     }

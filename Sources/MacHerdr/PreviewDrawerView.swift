@@ -63,6 +63,8 @@ final class PreviewFinder: ObservableObject {
     @Published var query = ""
     @Published var notFound = false
     @Published var focusToken = 0
+    /// The find field itself holds the keyboard (the bar can stay open while focus is elsewhere).
+    @Published var fieldHasFocus = false
     weak var webView: WKWebView?
 
     func show() {
@@ -119,6 +121,8 @@ private struct PreviewFindBar: View {
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
         .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.hairline, lineWidth: 1))
         .onAppear { fieldFocused = true }
+        .onChange(of: fieldFocused) { _, now in finder.fieldHasFocus = now }
+        .onDisappear { finder.fieldHasFocus = false }
         .onChange(of: finder.focusToken) { _, _ in fieldFocused = true }
     }
 }
@@ -137,8 +141,8 @@ struct PreviewDrawerStack: View {
                 PreviewWebView(path: session.path, dark: colorScheme == .dark, zoom: zoom, onFocusChange: { focused = $0 }) { model.navigatePreview(to: $0) }
                     .id(session.id)
                 Rectangle()
-                    .fill(Theme.terminalBackground.opacity(focused || finder.isVisible ? 0 : 0.6))
-                    .animation(.easeInOut(duration: 0.15), value: focused || finder.isVisible)
+                    .fill(Theme.terminalBackground.opacity(focused || finder.fieldHasFocus ? 0 : 0.6))
+                    .animation(.easeInOut(duration: 0.15), value: focused || finder.fieldHasFocus)
                     .allowsHitTesting(false)
                 Button { model.closePreview() } label: {
                     Image(systemName: "xmark.circle.fill")
@@ -158,7 +162,7 @@ struct PreviewDrawerStack: View {
                             .padding(8)
                     }
                     .buttonStyle(.plain)
-                    .help(session.isZoomed ? "Unzoom preview (⇧⌘↩)" : "Zoom preview (⇧⌘↩)")
+                    .help(session.isZoomed ? "Unzoom split (⇧⌘↩)" : "Zoom split (⇧⌘↩)")
                     .offset(x: -30)
                 }
                 if finder.isVisible {
@@ -169,6 +173,7 @@ struct PreviewDrawerStack: View {
             }
         }
         .background(Theme.terminalBackground)
+        .onChange(of: focused || finder.fieldHasFocus) { _, now in model.previewHasKeyboard = now }
     }
 }
 

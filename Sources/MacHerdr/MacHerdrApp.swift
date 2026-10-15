@@ -144,9 +144,8 @@ struct MacHerdrApp: App {
                 }
                 .keyboardShortcut("0", modifiers: .command)
 
-                Button("Zoom Preview Split") {
-                    if PreviewZoom.previewHasFocus || PreviewFinder.shared.isVisible { focusedModel?.togglePreviewZoom() }
-                }
+                // The preview when it has focus, otherwise herdr's pane zoom (prefix+z).
+                Button("Zoom Split") { focusedModel?.perform(.zoom, index: nil) }
                 .keyboardShortcut(.return, modifiers: [.command, .shift])
                 Button("Find in Preview") {
                     if PreviewZoom.previewHasFocus || PreviewFinder.shared.isVisible { PreviewFinder.shared.show() }

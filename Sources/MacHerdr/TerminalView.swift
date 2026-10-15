@@ -1136,7 +1136,12 @@ final class LineBreakTerminalView: AppTerminalView {
         }
         // Ghostty consumes its default bindings before AppKit reaches the menu.
         // Give MacHerdr's commands priority over those standalone-terminal actions.
-        if modifiers.contains(.command), NSApp.mainMenu?.performKeyEquivalent(with: event) == true {
+        // ⌘+ ⌘− ⌘0 stay with ghostty's font-size bindings; the menu's preview zoom
+        // shares those keys and only applies when the preview has focus.
+        let fontSizeKey = modifiers.subtracting(.shift) == .command
+            && ["=", "+", "-", "0"].contains(event.charactersIgnoringModifiers ?? "")
+        if modifiers.contains(.command), !fontSizeKey,
+           NSApp.mainMenu?.performKeyEquivalent(with: event) == true {
             return true
         }
         return super.performKeyEquivalent(with: event)

@@ -383,7 +383,7 @@ struct DetailView: View {
                 .zIndex(1)
             detailContent
                 .clipShape(RoundedRectangle(cornerRadius: DetailMetrics.terminalCornerRadius, style: .continuous))
-                .terminalPanelGlass()
+                .terminalPanelGlass(leadingMargin: sidebarHidden)
                 // Losing the selected agent tears the SplitContainer down without
                 // resetting the axis, which would leave the same phantom split.
                 //
@@ -708,6 +708,12 @@ struct DetailView: View {
                 ratio: $editorDrawerRatio
             ) {
                 terminalStack
+                    .overlay {
+                        Rectangle()
+                            .fill(Theme.terminalBackground.opacity(model.dimsTerminalForPreview ? 0.6 : 0))
+                            .animation(.easeInOut(duration: 0.15), value: model.dimsTerminalForPreview)
+                            .allowsHitTesting(false)
+                    }
             } drawer: {
                 ZStack {
                     EditorDrawerStack(model: model)
