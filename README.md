@@ -33,7 +33,8 @@ wrapper.
 - **Ghostty terminal.** Rendered by libghostty (Metal). Pick any bundled Ghostty theme in
   Settings, or import it from `~/.config/ghostty/config`. Light mode adapts ANSI colors so
   text does not wash out; Shift+Enter inserts a line break; selecting with the mouse copies
-  and shows a brief "Copied" notice.
+  and shows a brief "Copied" notice. The window chrome follows the terminal theme's
+  background, with an Appearance toggle and a "darker than terminal" option.
 - **Local and remote devices.** Add SSH hosts (`user@host`, `user@host:port`, `ssh://` URIs, or
   `~/.ssh/config` aliases). Authentication tries OpenSSH keys and agent first, then Tailscale
   SSH, then a password prompt stored in the macOS Keychain. Each device reconnects on its own
@@ -41,14 +42,27 @@ wrapper.
 - **New Agent, New Terminal, New Space.** The agent picker lists only the CLIs found on the
   login-shell PATH locally, or the remote server's catalog over SSH. Shortcuts: Cmd+N new
   agent, Cmd+T new terminal, Shift+Cmd+N new space.
+- **Editor drawer and previews** (local devices). Cmd+E opens a per-tab drawer beside the
+  terminal running neovim in the pane's directory; drag the divider to resize it.
+  - Cmd+K opens a file from the repo (changed files first, then fuzzy search) in that
+    nvim, over its RPC socket. Gitignored markdown and HTML files are searchable too.
+  - Markdown (with Mermaid diagrams) and HTML files open as a live-reloading preview in
+    the same slot instead. Links to other local `.md`/`.html` files open in the viewer;
+    web links go to your browser.
+  - Preview shortcuts, active while the preview has focus: Cmd+= / Cmd+- / Cmd+0 zoom the
+    page, Cmd+F finds in the page (Cmd+G / Shift+Cmd+G next and previous). Whichever side
+    has the keyboard is the bright one; the other dims.
+  - Shift+Cmd+Return (Terminal → Zoom Split) zooms the focused split, preview or
+    terminal, and hides the sidebar. herdr's own pane zoom (`prefix+z`) does the same.
 - **Search, files, notifications.**
-  - Cmd+K searches every agent on every device, ordered by urgency.
+  - Cmd+K is tabbed: Files, Terminals, Agents and Spaces, across every device. Agents are
+    ordered by urgency.
   - A two-pane file manager browses Local and SSH devices and copies in either direction.
   - Files and images can be pasted into an agent's pane, locally or over SSH.
   - A system notification appears when an agent finishes or needs input; clicking it jumps
     straight to that agent.
-- **Native look.** SwiftUI, light and dark appearance, an opaque sidebar, and Liquid Glass
-  titlebar buttons on macOS 26.
+- **Native look.** SwiftUI, light and dark appearance, an opaque sidebar, Liquid Glass
+  titlebar buttons, and a Liquid Glass rim around the terminal panel on macOS 26.
 
 ## What it deliberately leaves out
 
@@ -92,7 +106,9 @@ flowchart LR
   store, models). It is UI-independent and tested on its own with `make kit-test`.
 - **`Sources/MacHerdr`**: the SwiftUI app. Each pane is an
   [libghostty](https://github.com/Lakr233/libghostty-spm) terminal fed by a local `forkpty`
-  pump running `herdr agent attach`.
+  pump running `herdr agent attach`. The editor drawer (`EditorDrawerRegistry`, `NvimClient`)
+  and the markdown/HTML preview (a `WKWebView` with bundled marked and Mermaid) share one
+  drawer slot per tab.
 
 ## Credits
 
