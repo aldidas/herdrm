@@ -29,14 +29,17 @@ struct RootView: View {
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
-            SidebarSplit(collapsed: sidebarCollapsed, collapsedWidth: SidebarRail.width) { width in
+            SidebarSplit(
+                collapsed: sidebarCollapsed || model.isSplitZoomed,
+                collapsedWidth: model.isSplitZoomed ? 0 : SidebarRail.width
+            ) { width in
                 if sidebarCollapsed {
                     SidebarRail(model: model, collapsed: $sidebarCollapsed)
                 } else {
                     SidebarView(model: model, collapsed: $sidebarCollapsed, width: width)
                 }
             } detail: {
-                DetailView(model: model, sidebarCollapsed: $sidebarCollapsed)
+                DetailView(model: model, sidebarCollapsed: $sidebarCollapsed, sidebarHidden: model.isSplitZoomed)
             }
 
             // In-window device panel; NSPopover throws in ViewBridge on macOS 26+ betas.
@@ -368,6 +371,8 @@ enum DetailMetrics {
 struct DetailView: View {
     @ObservedObject var model: AppModel
     @Binding var sidebarCollapsed: Bool
+    /// A zoomed split hides the sidebar altogether, rail included.
+    var sidebarHidden = false
     @State private var hasOpenedFileManager = false
     @State private var showUsage = false
 
@@ -524,7 +529,10 @@ struct DetailView: View {
 
     private var titlebar: some View {
         HStack(spacing: 8) {
-            if sidebarCollapsed {
+            if sidebarHidden {
+                // No rail: only the traffic lights need clearing.
+                Spacer().frame(width: TitlebarMetrics.trafficLightClearance - 10 - 8)
+            } else if sidebarCollapsed {
                 // The rail sits under the traffic lights, so only the rest needs clearing.
                 // Subtract the strip's leading padding (10) and the HStack spacing (8) too,
                 // so the toggle lands at the same x as the expanded sidebar's toggle.
@@ -696,6 +704,7 @@ struct DetailView: View {
         VStack(spacing: 0) {
             DrawerSplit(
                 isOpen: model.visibleEditorDrawerID != nil || model.visiblePreview != nil,
+                isZoomed: model.visiblePreview?.isZoomed == true,
                 ratio: $editorDrawerRatio
             ) {
                 terminalStack

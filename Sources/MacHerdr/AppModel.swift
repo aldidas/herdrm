@@ -977,10 +977,24 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// A split is zoomed — herdr's own pane zoom, or a zoomed preview — so the app shows
+    /// only that split and the sidebar steps aside.
+    var isSplitZoomed: Bool {
+        if visiblePreview?.isZoomed == true { return true }
+        return selectedShellID == nil && !isFileManagerActive && selectedAttachedEntry != nil
+            && activeLayout?.zoomed == true
+    }
+
+    func togglePreviewZoom() {
+        guard let key = editorDrawerContext, previews[key]?.isVisible == true else { return }
+        previews[key]?.isZoomed.toggle()
+    }
+
     /// Hides the visible preview and returns the keyboard to the herdr pane.
     func closePreview() {
         guard let key = editorDrawerContext else { return }
         previews[key]?.isVisible = false
+        previews[key]?.isZoomed = false
         if let entry = selectedAttachedEntry { AttachViewRegistry.focus(entry.id) }
     }
 
@@ -1085,6 +1099,10 @@ final class AppModel: ObservableObject {
             let step = action == .cyclePaneNext ? 1 : ids.count - 1
             focusLayoutPane(ids[(at + step) % ids.count])
         case .zoom:
+            if visiblePreview != nil, PreviewZoom.previewHasFocus || PreviewFinder.shared.isVisible {
+                togglePreviewZoom() // the focused split is the preview, not a herdr pane
+                return
+            }
             guard let selected = selectedPane, let device = device(selected.deviceID) else { return }
             let service = service(for: device)
             Task { @MainActor in

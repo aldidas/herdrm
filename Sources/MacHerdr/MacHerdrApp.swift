@@ -128,6 +128,39 @@ struct MacHerdrApp: App {
                 Button("Toggle Editor Drawer") { focusedModel?.toggleEditorDrawer() }
                     .keyboardShortcut("e", modifiers: .command)
 
+                // Zoom applies only while the preview itself has focus. With the terminal
+                // focused, ghostty's own performKeyEquivalent takes ⌘+/−/0 for the font
+                // size before the menu sees them.
+                Button("Zoom In Preview") {
+                    if focusedModel?.visiblePreview != nil { PreviewZoom.step(by: 0.1) }
+                }
+                .keyboardShortcut("=", modifiers: .command)
+                Button("Zoom Out Preview") {
+                    if focusedModel?.visiblePreview != nil { PreviewZoom.step(by: -0.1) }
+                }
+                .keyboardShortcut("-", modifiers: .command)
+                Button("Actual Size Preview") {
+                    if focusedModel?.visiblePreview != nil { PreviewZoom.reset() }
+                }
+                .keyboardShortcut("0", modifiers: .command)
+
+                Button("Zoom Preview Split") {
+                    if PreviewZoom.previewHasFocus || PreviewFinder.shared.isVisible { focusedModel?.togglePreviewZoom() }
+                }
+                .keyboardShortcut(.return, modifiers: [.command, .shift])
+                Button("Find in Preview") {
+                    if PreviewZoom.previewHasFocus || PreviewFinder.shared.isVisible { PreviewFinder.shared.show() }
+                }
+                .keyboardShortcut("f", modifiers: .command)
+                Button("Find Next in Preview") {
+                    if PreviewZoom.previewHasFocus || PreviewFinder.shared.isVisible { PreviewFinder.shared.next() }
+                }
+                .keyboardShortcut("g", modifiers: .command)
+                Button("Find Previous in Preview") {
+                    if PreviewZoom.previewHasFocus || PreviewFinder.shared.isVisible { PreviewFinder.shared.next(backwards: true) }
+                }
+                .keyboardShortcut("g", modifiers: [.command, .shift])
+
                 Divider()
 
                 // Guarded on selectedAttachedEntry, not just on the model: with the placeholder

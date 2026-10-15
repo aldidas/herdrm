@@ -10,6 +10,9 @@ import SwiftUI
 /// its terminal never sees a zero-column resize.
 struct DrawerSplit<Main: View, Drawer: View>: View {
     let isOpen: Bool
+    /// The drawer covers `main` entirely; `main` keeps its size underneath so its
+    /// terminals are not resized.
+    var isZoomed = false
     @Binding var ratio: Double
     @ViewBuilder var main: () -> Main
     @ViewBuilder var drawer: () -> Drawer
@@ -21,14 +24,15 @@ struct DrawerSplit<Main: View, Drawer: View>: View {
         GeometryReader { proxy in
             let total = proxy.size.width
             let drawerWidth = total * EditorDrawerLayout.clamp(ratio)
+            let shownWidth = isZoomed && isOpen ? total : drawerWidth
             ZStack(alignment: .trailing) {
                 main()
                     .padding(.trailing, isOpen ? drawerWidth + 1 : 0)
                 drawer()
-                    .frame(width: drawerWidth)
+                    .frame(width: shownWidth)
                     .opacity(isOpen ? 1 : 0)
                     .allowsHitTesting(isOpen)
-                if isOpen {
+                if isOpen && !isZoomed {
                     divider(total: total)
                         .padding(.trailing, drawerWidth)
                 }

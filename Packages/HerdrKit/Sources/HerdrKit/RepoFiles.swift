@@ -142,14 +142,34 @@ public actor RepoFiles {
             }
             .sorted { $0.1 > $1.1 }
             .map(\.0)
+        let tracked = RepoFileParser.paths(nullSeparated: await listing ?? Data())
         let snapshot = Snapshot(
             at: Date(),
             root: root,
             changed: changed,
-            all: RepoFileParser.paths(nullSeparated: await listing ?? Data())
+            all: tracked + (await ignoredDocuments(root: root))
         )
         cache[directory] = snapshot
         return snapshot
+    }
+
+    /// Gitignored markdown/HTML files (notes, generated docs) that the previewer can
+    /// open. Walking ignored trees is slow, so this is cached longer than a snapshot.
+    private var ignoredCache: [String: (at: Date, paths: [String])] = [:]
+    private static let documentExtensions: Set<String> = ["md", "markdown", "mdx", "html", "htm"]
+
+    private func ignoredDocuments(root: String) async -> [String] {
+        if let hit = ignoredCache[root], Date().timeIntervalSince(hit.at) < 30 { return hit.paths }
+        let listing = await Self.git(
+            ["ls-files", "-z", "--others", "--ignored", "--exclude-standard"], in: root
+        )
+        let paths = RepoFileParser.paths(nullSeparated: listing ?? Data()).filter { path in
+            guard Self.documentExtensions.contains((path as NSString).pathExtension.lowercased())
+            else { return false }
+            return !path.split(separator: "/").contains { $0 == "node_modules" || $0 == ".git" }
+        }
+        ignoredCache[root] = (Date(), paths)
+        return paths
     }
 
     /// Runs git off the actor so a slow repo never blocks other directories.
